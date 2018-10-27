@@ -1,4 +1,5 @@
 import pygame
+from pygame.math import Vector2 as Vect
 import sys
 import random
 import math
@@ -38,21 +39,21 @@ class Car:
         ###draw image
         rotated_image = pygame.transform.rotate(self.car_img, self.angle)
         rect = rotated_image.get_rect()
-        rect.center = self.position + pygame.math.Vector2(-L_BETWEEN_I_AND_CENTER, 0).rotate(-self.angle)
+        rect.center = self.position + Vect(-L_BETWEEN_I_AND_CENTER, 0).rotate(-self.angle)
         scr.blit(rotated_image, rect)
 
         ###draw center of rotation and wheels
         pygame.draw.circle(scr, white, self.position , 2, 0)
-        wheel_L_pos = self.position + pygame.math.Vector2(L_BETWEEN_WHEELS/2, 0).rotate(-self.angle-90)
-        wheel_R_pos = self.position + pygame.math.Vector2(L_BETWEEN_WHEELS/2, 0).rotate(-self.angle+90)
+        wheel_L_pos = self.position + Vect(L_BETWEEN_WHEELS/2, 0).rotate(-self.angle-90)
+        wheel_R_pos = self.position + Vect(L_BETWEEN_WHEELS/2, 0).rotate(-self.angle+90)
         pygame.draw.circle(scr, red, (int(wheel_L_pos[0]), int(wheel_L_pos[1])), 5, 0)
         pygame.draw.circle(scr, red, (int(wheel_R_pos[0]), int(wheel_R_pos[1])), 5, 0)
 
 
         ###draw sensors
-        sensors_center = self.position + pygame.math.Vector2(-L_BETWEEN_I_AND_SENSORS, 0).rotate(-self.angle)
+        sensors_center = self.position + Vect(-L_BETWEEN_I_AND_SENSORS, 0).rotate(-self.angle)
         n = len(self.sensors_values)
-        sensor_offset = pygame.math.Vector2(L_BETWEEN_SENSORS, 0).rotate(-self.angle-90)
+        sensor_offset = Vect(L_BETWEEN_SENSORS, 0).rotate(-self.angle-90)
         for i in range(n):
             sensor_pos = sensors_center + (i-n//2)*sensor_offset
             sensor_pos = (int(sensor_pos[0]), int(sensor_pos[1]))
@@ -135,13 +136,13 @@ while True:
                  sys.exit()
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_LEFT:
-                    angle_change = 1
+                    angle_change = 2
                 elif event.key == pygame.K_RIGHT:
-                    angle_change = -1
+                    angle_change = -2
                 elif event.key == pygame.K_UP:
-                    speed = 4
+                    speed = 5
                 elif event.key == pygame.K_DOWN:
-                    speed = -4
+                    speed = -5
                 elif event.key == pygame.K_u:
                     speed_left_change = 3
                 elif event.key == pygame.K_j:
@@ -163,20 +164,15 @@ while True:
                 elif event.key == pygame.K_o or event.key == pygame.K_l:
                     speed_right_change = 0
 
-    #angle += angle_change
-    #angle = angle%360
-    #x += int(speed * math.cos(math.radians(angle)))
-    #y += int(- speed * math.sin(math.radians(angle)))
-
     speed_left += speed_left_change
     speed_right += speed_right_change
     angular_speed = float(speed_left-speed_right)/L_BETWEEN_WHEELS
     linear_speed = float(speed_left+speed_right)/2
     dt = time.time()-last_time
     last_time = time.time()
-    x += linear_speed*math.cos(math.radians(angle))*dt
-    y -= linear_speed*math.sin(math.radians(angle))*dt
-    angle -= math.degrees(angular_speed*dt)
+    x += linear_speed*math.cos(math.radians(angle))*dt + int(speed * math.cos(math.radians(angle)))
+    y -= linear_speed*math.sin(math.radians(angle))*dt + int(speed * math.sin(math.radians(angle)))
+    angle -= math.degrees(angular_speed*dt) - angle_change
     angle = angle%360
 
     car.set_pos((int(x),int(y)))

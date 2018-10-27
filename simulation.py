@@ -11,9 +11,9 @@ blue = (0,0,255)
 green = (0, 255, 0)
 red = (255, 0, 0)
 
-L_BETWEEN_WHEELS = 275
-L_BETWEEN_I_AND_SENSORS = 130
-L_BETWEEN_I_AND_CENTER = 105
+L_BETWEEN_WHEELS = 137
+L_BETWEEN_I_AND_SENSORS = 70
+L_BETWEEN_I_AND_CENTER = 53
 L_BETWEEN_SENSORS = 10
 NUMBER_OF_SENSOR = 3
 
@@ -49,7 +49,6 @@ class Car:
         pygame.draw.circle(scr, red, (int(wheel_L_pos[0]), int(wheel_L_pos[1])), 5, 0)
         pygame.draw.circle(scr, red, (int(wheel_R_pos[0]), int(wheel_R_pos[1])), 5, 0)
 
-
         ###draw sensors
         sensors_center = self.position + Vect(-L_BETWEEN_I_AND_SENSORS, 0).rotate(-self.angle)
         n = len(self.sensors_values)
@@ -57,8 +56,8 @@ class Car:
         for i in range(n):
             sensor_pos = sensors_center + (i-n//2)*sensor_offset
             sensor_pos = (int(sensor_pos[0]), int(sensor_pos[1]))
-            if 0 < sensor_pos[0] < 1500 and 0 < sensor_pos[1] < 800:
-                sensor_value = (background.get_at(sensor_pos) == black)
+            if 0 < sensor_pos[0] < 1350 and 0 < sensor_pos[1] < 725:
+                sensor_value = (self.background.get_at(sensor_pos) == black)
             else:
                 sensor_value = False
             self.sensors_values[i] = sensor_value
@@ -75,26 +74,26 @@ class Car:
         return self.sensors_values
 
 def get_background():
-    background = pygame.Surface((1500,800))
+    background = pygame.Surface((1350,725))
     background.fill(white)
-    pygame.draw.rect(background, black, (50,50,1400,700), 16)
-    pygame.draw.line(background, black, (285,50), (285,750), 16)
-    pygame.draw.line(background, black, (50,400), (285,400), 16)
+    pygame.draw.rect(background, black, (50,50,1250,625), 8)
+    pygame.draw.line(background, black, (258,50), (258,675), 8)
+    pygame.draw.line(background, black, (50,367), (258,367), 8)
     tube_point_list = []
-    x = 360
-    y = 160
+    x = 327
+    y = 147
     for i in range(6):
-        pygame.draw.line(background, black, (x,y), (x,y+470), 16)
-        tube_point_list.append((x,y+110))
-        tube_point_list.append((x,y+360))
+        pygame.draw.line(background, black, (x,y), (x,y+416), 8)
+        tube_point_list.append((x,y+97))
+        tube_point_list.append((x,y+320))
         if i%2==1 and i<5:
-            pygame.draw.line(background, black, (x,y), (x+200,y), 16)
+            pygame.draw.line(background, black, (x,y), (x+167,y), 8)
         elif i<5:
-            pygame.draw.line(background, black, (x,y+470), (x+200,y+470), 16)
-        x+=200
+            pygame.draw.line(background, black, (x,y+416), (x+167,y+416), 8)
+        x+=167
     return background, tube_point_list
 
-screen = pygame.display.set_mode((1500,800))
+screen = pygame.display.set_mode((1350,725))
 pygame.init()
 pygame.display.set_caption('Simulation groupe 10')
 clock = pygame.time.Clock()
@@ -103,16 +102,13 @@ myfont = pygame.font.SysFont('Times New Roman', 30)
 
 background, tube_point_list = get_background()
 tube_point_list = random.sample(tube_point_list, 6)
-tube_radius_list = [16,16,20,20,25,25]
+tube_radius_list = [8,8,10,10,12,12]
 tube_list = []
 for i in range(6):
     tube_list.append(Tube(tube_point_list[i], tube_radius_list[i]))
 
-x =  (360)
-y = (160)
-
-tx =  (360)
-ty = (160)
+x = 327
+y = 147
 
 x_change = 0
 y_change = 0
@@ -140,9 +136,9 @@ while True:
                 elif event.key == pygame.K_RIGHT:
                     angle_change = -2
                 elif event.key == pygame.K_UP:
-                    speed = 5
+                    speed = 8
                 elif event.key == pygame.K_DOWN:
-                    speed = -5
+                    speed = -8
                 elif event.key == pygame.K_u:
                     speed_left_change = 3
                 elif event.key == pygame.K_j:

@@ -89,6 +89,8 @@ screen = pygame.display.set_mode((1500,800))
 pygame.init()
 pygame.display.set_caption('Simulation groupe 10')
 clock = pygame.time.Clock()
+pygame.font.init()
+myfont = pygame.font.SysFont('Times New Roman', 30)
 
 background, tube_point_list = get_background()
 tube_point_list = random.sample(tube_point_list, 6)
@@ -105,6 +107,10 @@ ty = (160)
 
 x_change = 0
 y_change = 0
+speed_left = 0
+speed_right = 0
+speed_left_change = 0
+speed_right_change = 0
 car_speed = 0
 angle_change = 0
 angle = 270
@@ -127,6 +133,15 @@ while True:
                     speed = 4
                 elif event.key == pygame.K_DOWN:
                     speed = -4
+                elif event.key == pygame.K_u:
+                    speed_left_change = 1
+                elif event.key == pygame.K_j:
+                    speed_left_change = -1
+                elif event.key == pygame.K_o:
+                    speed_right_change = 1
+                elif event.key == pygame.K_l:
+                    speed_right_change = -1
+
                 elif event.key == pygame.K_q:
                     pygame.quit();
                     sys.exit()
@@ -135,6 +150,10 @@ while True:
                     angle_change = 0
                 elif event.key == pygame.K_UP or event.key == pygame.K_DOWN:
                     speed = 0
+                elif event.key == pygame.K_u or event.key == pygame.K_j:
+                    speed_left_change = 0
+                elif event.key == pygame.K_o or event.key == pygame.K_l:
+                    speed_right_change = 0
 
     angle += angle_change
     angle = angle%360
@@ -142,6 +161,9 @@ while True:
     x += int(speed * math.cos(math.radians(angle)))
     y += int(- speed * math.sin(math.radians(angle)))
 
+
+    speed_left += speed_left_change
+    speed_right += speed_right_change
     car.set_pos((x,y))
     car.set_angle(angle)
 
@@ -150,4 +172,6 @@ while True:
     for tube in tube_list:
         tube.draw(screen)
     car.draw(screen)
+    text = myfont.render('Motors speed: '+str(speed_left)+' | '+str(speed_right), False, black)
+    screen.blit(text,(0,0))
     pygame.display.update()

@@ -2,12 +2,17 @@ import pygame
 import sys
 import random
 import math
+import time
 
 white = (255,255,255)
 black = (0,0,0)
 blue = (0,0,255)
 green = (0, 255, 0)
 red = (255, 0, 0)
+
+L_BETWEEN_WHEELS = 100
+L_BETWEEN_SENSORS = 10
+NUMBER_OF_SENSOR = 3
 
 class Tube:
     def __init__(self, position, radius):
@@ -28,25 +33,33 @@ class Car:
         #vector from center of rotation to sensor
         self.sensor_offset = pygame.math.Vector2(-30, 0)
         self.background = background
-        self.sensors_values = [False, False, False]
+        self.sensors_values = []
+        for i in range(NUMBER_OF_SENSOR):
+            self.sensors_values.append(False)
     def draw(self, scr):
         ###draw image
         offset_rotated = self.offset.rotate(-self.angle)
+        sensor_offset_rotated = self.offset.rotate(-self.angle)
+        sensor_offset_rotated_perpendicular = sensor_offset_rotated.rotate(90)
         rotated_image = pygame.transform.rotate(self.car_img, self.angle)
         rect = rotated_image.get_rect()
         rect.center = self.position + offset_rotated
         scr.blit(rotated_image, rect)
 
-        ###draw center of rotation
-        pygame.draw.circle(scr, white, self.position, 2, 0)
+        ###draw center of rotation and wheels
+        pygame.draw.circle(scr, white, self.position , 2, 0)
+        wheel_L_pos = self.position + pygame.math.Vector2(L_BETWEEN_WHEELS/2, 0).rotate(-self.angle-90)
+        wheel_R_pos = self.position + pygame.math.Vector2(L_BETWEEN_WHEELS/2, 0).rotate(-self.angle+90)
+        pygame.draw.circle(scr, red, (int(wheel_L_pos[0]), int(wheel_L_pos[1])), 5, 0)
+        pygame.draw.circle(scr, red, (int(wheel_R_pos[0]), int(wheel_R_pos[1])), 5, 0)
+
 
         ###draw sensors
-        sensor_offset_rotated = self.offset.rotate(-self.angle)
-        sensor_offset_rotated_perpendicular = sensor_offset_rotated.rotate(90)
         sensors_center = self.position + sensor_offset_rotated
         n = len(self.sensors_values)
+        sensor_offset = pygame.math.Vector2(L_BETWEEN_SENSORS, 0).rotate(-self.angle-90)
         for i in range(n):
-            sensor_pos = sensors_center + (i-n//2)*sensor_offset_rotated_perpendicular*0.3
+            sensor_pos = sensors_center + (i-n//2)*sensor_offset
             sensor_pos = (int(sensor_pos[0]), int(sensor_pos[1]))
             if 0 < sensor_pos[0] < 1500 and 0 < sensor_pos[1] < 800:
                 sensor_value = (background.get_at(sensor_pos) == black)
@@ -113,10 +126,11 @@ speed_left_change = 0
 speed_right_change = 0
 car_speed = 0
 angle_change = 0
-angle = 270
+angle = 0
 car = Car(background)
 
 speed = 0
+last_time = time.time()
 
 while True:
     ###update position
@@ -134,14 +148,13 @@ while True:
                 elif event.key == pygame.K_DOWN:
                     speed = -4
                 elif event.key == pygame.K_u:
-                    speed_left_change = 1
+                    speed_left_change = 3
                 elif event.key == pygame.K_j:
-                    speed_left_change = -1
+                    speed_left_change = -3
                 elif event.key == pygame.K_o:
-                    speed_right_change = 1
+                    speed_right_change = 3
                 elif event.key == pygame.K_l:
-                    speed_right_change = -1
-
+                    speed_right_change = -3
                 elif event.key == pygame.K_q:
                     pygame.quit();
                     sys.exit()
@@ -155,23 +168,31 @@ while True:
                 elif event.key == pygame.K_o or event.key == pygame.K_l:
                     speed_right_change = 0
 
-    angle += angle_change
-    angle = angle%360
-
-    x += int(speed * math.cos(math.radians(angle)))
-    y += int(- speed * math.sin(math.radians(angle)))
-
+    #angle += angle_change
+    #angle = angle%360
+    #x += int(speed * math.cos(math.radians(angle)))
+    #y += int(- speed * math.sin(math.radians(angle)))
 
     speed_left += speed_left_change
     speed_right += speed_right_change
-    car.set_pos((x,y))
-    car.set_angle(angle)
+    angular_speed = float(speed_left-speed_right)/L_BETWEEN_WHEELS
+    linear_speed = float(speed_left+speed_right)/2
+    dt = time.time()-last_time
+    last_time = time.time()
+    x += linear_speed*math.cos(math.radians(angle))*dt
+    y -= linear_speed*math.sin(math.radians(angle))*dt
+    angle -= math.degrees(angular_speed*dt)
+    angle = angle%360
+
+    car.set_pos((int(x),int(y)))
+    car.set_angle(int(angle))
 
     ###draw everything
     screen.blit(background, (0,0))
     for tube in tube_list:
         tube.draw(screen)
     car.draw(screen)
-    text = myfont.render('Motors speed: '+str(speed_left)+' | '+str(speed_right), False, black)
+    text = myfont.render('Motors speeds: '+str(speed_left)+' | '+str(speed_right), False, black)
     screen.blit(text,(0,0))
     pygame.display.update()
+    time.sleep(0.05)

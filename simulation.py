@@ -10,7 +10,9 @@ blue = (0,0,255)
 green = (0, 255, 0)
 red = (255, 0, 0)
 
-L_BETWEEN_WHEELS = 100
+L_BETWEEN_WHEELS = 275
+L_BETWEEN_I_AND_SENSORS = 130
+L_BETWEEN_I_AND_CENTER = 105
 L_BETWEEN_SENSORS = 10
 NUMBER_OF_SENSOR = 3
 
@@ -28,22 +30,15 @@ class Car:
         self.position = pygame.math.Vector2(0,0)
         self.angle = 0
         self.car_img = pygame.image.load('car.png').convert_alpha()
-        #vector from center of image to center of rotation
-        self.offset = pygame.math.Vector2(-60, 0)
-        #vector from center of rotation to sensor
-        self.sensor_offset = pygame.math.Vector2(-30, 0)
         self.background = background
         self.sensors_values = []
         for i in range(NUMBER_OF_SENSOR):
             self.sensors_values.append(False)
     def draw(self, scr):
         ###draw image
-        offset_rotated = self.offset.rotate(-self.angle)
-        sensor_offset_rotated = self.offset.rotate(-self.angle)
-        sensor_offset_rotated_perpendicular = sensor_offset_rotated.rotate(90)
         rotated_image = pygame.transform.rotate(self.car_img, self.angle)
         rect = rotated_image.get_rect()
-        rect.center = self.position + offset_rotated
+        rect.center = self.position + pygame.math.Vector2(-L_BETWEEN_I_AND_CENTER, 0).rotate(-self.angle)
         scr.blit(rotated_image, rect)
 
         ###draw center of rotation and wheels
@@ -55,7 +50,7 @@ class Car:
 
 
         ###draw sensors
-        sensors_center = self.position + sensor_offset_rotated
+        sensors_center = self.position + pygame.math.Vector2(-L_BETWEEN_I_AND_SENSORS, 0).rotate(-self.angle)
         n = len(self.sensors_values)
         sensor_offset = pygame.math.Vector2(L_BETWEEN_SENSORS, 0).rotate(-self.angle-90)
         for i in range(n):
@@ -126,7 +121,7 @@ speed_left_change = 0
 speed_right_change = 0
 car_speed = 0
 angle_change = 0
-angle = 0
+angle = 270
 car = Car(background)
 
 speed = 0

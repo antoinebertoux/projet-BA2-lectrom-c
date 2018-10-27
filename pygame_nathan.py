@@ -124,6 +124,9 @@ while True:
                     speed = 4
                 elif event.key == pygame.K_DOWN:
                     speed = -4
+                elif event.key == pygame.K_q:
+                    pygame.quit();
+                    sys.exit()
             if event.type == pygame.KEYUP:
                 if event.key == pygame.K_LEFT or event.key == pygame.K_RIGHT :
                     angle_change = 0

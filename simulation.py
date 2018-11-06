@@ -10,8 +10,7 @@ black = (0,0,0)
 blue = (0,0,255)
 green = (0, 255, 0)
 red = (255, 0, 0)
-
-WHEELS_SPACING = 140
+WHEELS_SPACING = 145
 SENSORS_OFFSET = -5
 CENTER_OF_ROTATION_OFFSET = -5
 SENSORS_SPACING = 6
@@ -30,6 +29,8 @@ class Car:
             self.sensors_values.append(0)
 
     def draw(self, scr):
+        """Draw the car on the surface scr
+        """
         ###draw image
         rotated_image = pygame.transform.rotate(self.car_img, self.angle)
         rect = rotated_image.get_rect()
@@ -60,6 +61,8 @@ class Car:
             pygame.draw.circle(scr, color, sensor_pos, 3, 0)
 
     def update_pos(self, dt):
+        """Compute the change in angle and position during the duration dt with current motor speeds
+        """
         angular_speed = float(self.speed_left-self.speed_right)/WHEELS_SPACING
         linear_speed = float(self.speed_left+self.speed_right)/2
         self.angle -= math.degrees(angular_speed*dt)
@@ -68,22 +71,47 @@ class Car:
         self.angle = self.angle%360
 
     def set_speed(self, speed_left, speed_right):
-        self.speed_left = speed_left
-        self.speed_right = speed_right
+        """Set the speed of both motors
+        """
+        DIFF = 100 #depends on acceleration/inertia
+        if speed_left+DIFF < self.speed_left:
+            self.speed_left -= DIFF
+        elif speed_left-DIFF > self.speed_left:
+            self.speed_left += DIFF
+        else:
+            self.speed_left = speed_left
+
+        if speed_right+DIFF < self.speed_right:
+            self.speed_right -= DIFF
+        elif speed_right-DIFF > self.speed_right:
+            self.speed_right += DIFF
+        else:
+            self.speed_right = speed_right
 
     def get_sensors_values(self):
+        """Return a list of integers that contains the line sensor values from left to right
+        """
         return self.sensors_values
 
 class Tube:
     def __init__(self, position, radius):
         self.position = position
         self.radius = radius
+
     def draw(self, scr):
+        """Draw the tube on the surface scr
+        """
         pygame.draw.circle(scr, blue, self.position, self.radius, 0)
+
     def set_pos(self, pos):
+        """Set the center position of the tube
+        """
         self.position = pos
 
+
 def get_background():
+    """return the background surface and the list of all the possibles position of the tubes
+    """
     background = pygame.Surface((1350,725))
     background.fill(white)
     pygame.draw.rect(background, black, (50,50,1250,625), 8)
@@ -104,7 +132,7 @@ def get_background():
     return background, tube_point_list
 
 
-#Main code
+######  Main code ######
 screen = pygame.display.set_mode((1350,725))
 pygame.init()
 pygame.display.set_caption('Simulation groupe 10')
@@ -137,6 +165,8 @@ speed_left, speed_right, speed_left_manual,speed_right_manual, speed_left_change
 stop = True
 last_time = time.time()
 
+
+##### Main loop ######
 while True:
     for event in pygame.event.get():
             if event.type == pygame.QUIT:

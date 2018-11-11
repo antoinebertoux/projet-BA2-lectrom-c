@@ -15,7 +15,9 @@ SENSORS_OFFSET = -5
 CENTER_OF_ROTATION_OFFSET = -5
 SENSORS_SPACING = 6
 NUMBER_OF_SENSOR = 3
-
+retour = False
+retour0 = False
+tretour = 0
 class Car:
     def __init__(self, position, angle, background):
         self.position = pygame.math.Vector2(position)
@@ -229,7 +231,45 @@ while True:
     last_error = error
     speed_left = 50 - correction
     speed_right = 50 + correction
-
+    if not total_sum and not retour0 and not retour : # on est sortie de la route 
+        tretour = time.time()
+        t0 = time.time()
+        retour0 = True
+        print(1)
+    elif retour0 and total_sum >= 10 :# finalement on est a nouveau sur la route 
+        tretour = 0
+        retour0 = False
+        print(2)
+    elif retour0 and (last_time-tretour> 0.2) : # on est sortie de la route depuis trop longtemps pour que ce soit une erreur donc on desside de rentre
+        t0 = time.time()
+        retour = True
+        retour0 = False
+        print(3)
+    elif retour : # on a decide de rentre
+        t1 = time.time()
+        dtretour = t1-t0
+        print(4)
+        if dtretour <= 2 : # on fait marche arriere
+            speed_left = -100
+            speed_right = -100
+        elif dtretour <= 5  and dtretour > 2 : # on tourne a gauche
+            speed_left = 0
+            speed_right = 100
+        elif dtretour <= 9 and dtretour > 5 : # on va tout droit
+            speed_left = 100
+            speed_right = 100
+        elif dtretour <= 11 and dtretour > 9 : # on s'arrete pour deposser des cylindres
+            speed_right = 0
+            speed_left = 0
+        elif dtretour <= 11 and dtretour > 9 : # on tourne a gauche
+            speed_right = 100
+            speed_left = 0
+        elif dtretour <= 13 and dtretour > 9 : # on va tout droit
+            speed_left = 100
+            speed_left = 100
+        elif dtretour > 13 : # on fini de deposse les derniers cylindres
+            speed_right = 0
+            speed_left = 0
     #for keyboard control
     if stop:
         speed_left = 0

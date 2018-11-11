@@ -242,7 +242,7 @@ while True:
         tretour = 0
         retour0 = False
         #print(2)
-    elif retour0 and (last_time-tretour> 0.2) : # on est sortie de la route depuis trop longtemps pour que ce soit une erreur donc on desside de rentre
+    elif retour0 and (last_time-tretour> 0.5) : # on est sortie de la route depuis trop longtemps pour que ce soit une erreur donc on desside de rentre
         t0 = time.time()
         retour = True
         retour0 = False
@@ -250,25 +250,25 @@ while True:
         t1 = time.time()
         dtretour = t1-t0
         #print(4)
-        if dtretour <= 4 : # on fait marche arriere
+        if dtretour <= 1 : # on fait marche arriere
             speed_left = -100
             speed_right = -100
-        elif dtretour <= 5  and dtretour > 2 : # on tourne a gauche
-            speed_left = 0
-            speed_right = 100
-        elif dtretour <= 9 and dtretour > 5 : # on va tout droit
+        elif dtretour <= 3.25  and dtretour > 1: # on tourne a gauche
+            speed_left = -50
+            speed_right = 50
+        elif dtretour <= 13 and dtretour > 3.25 : # on va tout droit
             speed_left = 100
             speed_right = 100
-        elif dtretour <= 11 and dtretour > 9 : # on s'arrete pour deposser des cylindres
+        elif dtretour <= 15.25 and dtretour > 13 : # on tourne a gauche
+            speed_right = 50
+            speed_left = -50
+        elif dtretour <= 17.25 and dtretour > 15.25 : # on s'arrete pour deposser des cylindres
             speed_right = 0
             speed_left = 0
-        elif dtretour <= 11 and dtretour > 9 : # on tourne a gauche
-            speed_right = 100
-            speed_left = 0
-        elif dtretour <= 13 and dtretour > 9 : # on va tout droit
+        elif dtretour <= 20 and dtretour > 17.25 : # on va tout droit
             speed_left = 100
             speed_left = 100
-        elif dtretour > 13 : # on fini de deposse les derniers cylindres
+        elif dtretour > 20 : # on fini de deposse les derniers cylindres
             speed_right = 0
             speed_left = 0
     #for keyboard control

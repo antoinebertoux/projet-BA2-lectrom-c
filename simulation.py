@@ -17,7 +17,7 @@ SENSORS_SPACING = 10
 SENSORS_POS = [(0,-9),(5,0),(0,9)]
 
 class Car:
-    def __init__(self, position, angle, background):
+    def __init__(self, position, angle, background, tube_list):
         self.position = pygame.math.Vector2(position)
         self.angle = angle
         self.car_img = pygame.image.load('car.png').convert_alpha()
@@ -25,6 +25,8 @@ class Car:
         self.sensors_values = []
         self.speed_left = 0.0
         self.speed_right = 0.0
+        self.tube_list = tube_list
+        self.stocked_tube_list = []
         for i in range(len(SENSORS_POS)):
             self.sensors_values.append(0)
 
@@ -69,6 +71,10 @@ class Car:
         self.position[0] += linear_speed*math.cos(math.radians(self.angle))*dt
         self.position[1] -= linear_speed*math.sin(math.radians(self.angle))*dt
         self.angle = self.angle%360
+        for tube in self.tube_list:
+            if tube.is_inside(self.position) and tube.get_radius() != 10:
+                self.stocked_tube_list.append(tube)
+                self.tube_list.remove(tube)
 
     def set_speed(self, speed_left, speed_right):
         """Set the speed of both motors
@@ -108,6 +114,11 @@ class Tube:
         """
         self.position = pos
 
+    def is_inside(self, point):
+        return Vect(point-self.position).length() < self.radius
+
+    def get_radius(self):
+        return self.radius
 
 def get_background():
     """return the background surface and the list of all the possibles position of the tubes
@@ -121,7 +132,7 @@ def get_background():
     x = 327
     y = 147
     for i in range(6):
-        pygame.draw.line(background, black, (x,y-3), (x,y+420), 9)
+        pygame.draw.line(background, black, (x,y-4), (x,y+420), 9)
         tube_point_list.append((x,y+100))
         tube_point_list.append((x,y+316))
         if i%2==1 and i<5:
@@ -147,7 +158,7 @@ tube_list = []
 for i in range(len(tube_radius_list)):
     tube_list.append(Tube(tube_point_list[i], tube_radius_list[i]))
 
-car = Car((1045,563), 0, background)
+car = Car((328,150), 270, background, tube_list)
 
 #PID
 pv = 0
@@ -159,6 +170,8 @@ KP = 20
 KI = 0
 KD = 0
 correction = 0
+turning = ""
+number_of_turns = 0
 
 #retour
 retour = False
@@ -168,7 +181,7 @@ tretour = 0
 speed_left, speed_right, speed_left_manual,speed_right_manual, speed_left_change, speed_right_change, angle_change, speed  = 0,0,0,0,0,0,0,0
 stop = True
 last_time = time.time()
-
+distance_since_last_turn = 0
 
 ##### Main loop ######
 while True:
@@ -222,14 +235,42 @@ while True:
     integral += last_error*dt
     correction = KP * error + KD * (error - last_error)/dt + KI * integral
     last_error = error
-    if error == 0 and total_sum<200:
-        speed_left = 50
-        speed_right = 50
-    elif total_sum == 300:
-        pass
+    if turning == "left" or turning == "right":
+        if time.time() - turning_start < 0.2:
+            speed_left = 50
+            speed_right = 50
+        elif time.time() - turning_start < 2.35:
+            if turning == "left":
+                speed_left = -50
+                speed_right = 50
+            else:
+                speed_left = 50
+                speed_right = -50
+        else:
+            #stop turning
+            turning = ""
+            distance_since_last_turn = 0
+            number_of_turns+=1
     else:
-        speed_left = 30+correction
-        speed_right = 20-correction
+        if error == 0 and total_sum<200:
+            speed_left = 50
+            speed_right = 50
+        else:
+            if (distance_since_last_turn>390 and number_of_turns % 2==0) or (distance_since_last_turn>150 and number_of_turns % 2==1):
+                #start turning
+                turning_start = time.time()
+                if correction > 0:
+                    turning = "right"
+                    speed_left = 50
+                    speed_right = -50
+                else:
+                    turning = "left"
+                    speed_left = -50
+                    speed_right = 50
+            else:
+                #following line
+                speed_left = 50+correction
+                speed_right = 50-correction
 
     #retour
     dtretour = 0
@@ -268,6 +309,7 @@ while True:
         elif dtretour > 21 : # on fini de deposse les derniers cylindres
             speed_right = 0
             speed_left = 0
+
     #for keyboard control
     if stop:
         speed_left = 0
@@ -276,6 +318,9 @@ while True:
     speed_right_manual += speed_right_change
     speed_left += speed - angle_change + speed_left_manual
     speed_right += speed + angle_change + speed_right_manual
+
+
+    distance_since_last_turn += float(speed_left+speed_right)/2*dt
 
     car.set_speed(speed_left, speed_right)
 

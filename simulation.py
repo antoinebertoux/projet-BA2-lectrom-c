@@ -15,9 +15,7 @@ SENSORS_OFFSET = -5
 CENTER_OF_ROTATION_OFFSET = -5
 SENSORS_SPACING = 6
 NUMBER_OF_SENSOR = 3
-retour = False
-retour0 = False
-tretour = 0
+
 class Car:
     def __init__(self, position, angle, background):
         self.position = pygame.math.Vector2(position)
@@ -149,12 +147,11 @@ tube_list = []
 for i in range(len(tube_radius_list)):
     tube_list.append(Tube(tube_point_list[i], tube_radius_list[i]))
 
-car = Car((327,300), 269, background)
+car = Car((1045,563), 0, background)
 
 #PID
 pv = 0
-MAX = (NUMBER_OF_SENSOR-1) * 10
-SP = MAX/2
+SP = 10
 error = 0
 last_error = 0
 integral = 0
@@ -162,6 +159,11 @@ KP = 35
 KI = 0
 KD = 0
 correction = 0
+
+#retour
+retour = False
+retour0 = False
+tretour = 0
 
 speed_left, speed_right, speed_left_manual,speed_right_manual, speed_left_change, speed_right_change, angle_change, speed  = 0,0,0,0,0,0,0,0
 stop = True
@@ -211,32 +213,26 @@ while True:
 
     #PID
     sensor_values = car.get_sensors_values()
-    weighted_sum = 0
-    total_sum = 0
-    weight = 0
-    for value in sensor_values:
-        total_sum += value
-        weighted_sum += weight * value
-        weight += 10
+    total_sum = sensor_values[0] + sensor_values[1] + sensor_values[2]
     if total_sum == 0:
-        if pv >MAX/2:
-            pv = MAX
-        else:
-            pv = 0
+        pv = 10
     else:
-        pv = weighted_sum/total_sum
+        pv = (sensor_values[0] + sensor_values[1]*10 + sensor_values[2]*20)/total_sum
     error = pv-SP
     integral += last_error*dt
     correction = KP * error + KD * (error - last_error)/dt + KI * integral
     last_error = error
     speed_left = 50 - correction
     speed_right = 50 + correction
-    if not total_sum and not retour0 and not retour : # on est sortie de la route 
+    dtretour = 0
+
+    #retour
+    if not total_sum and not retour0 and not retour : # on est sortie de la route
         tretour = time.time()
         t0 = time.time()
         retour0 = True
         print(1)
-    elif retour0 and total_sum >= 10 :# finalement on est a nouveau sur la route 
+    elif retour0 and total_sum >= 10 :# finalement on est a nouveau sur la route
         tretour = 0
         retour0 = False
         print(2)
@@ -244,12 +240,11 @@ while True:
         t0 = time.time()
         retour = True
         retour0 = False
-        print(3)
     elif retour : # on a decide de rentre
         t1 = time.time()
         dtretour = t1-t0
         print(4)
-        if dtretour <= 2 : # on fait marche arriere
+        if dtretour <= 4 : # on fait marche arriere
             speed_left = -100
             speed_right = -100
         elif dtretour <= 5  and dtretour > 2 : # on tourne a gauche
@@ -287,7 +282,8 @@ while True:
         tube.draw(screen)
     car.update_pos(dt)
     car.draw(screen)
-    text = myfont.render('Motors speeds: '+str(round(speed_left))+' | '+str(round(speed_right))+'  Error: '+str(error), False, black)
+    text = myfont.render('x:'+str(round(car.position[0])) + ' y:'+str(round(car.position[1]))  + ' angle:'+str(round(car.angle))\
+     + ' Motors speeds: '+str(round(speed_left))+' | '+str(round(speed_right))+'  Error: '+str(error) + ' Timer: ' +str(round(dtretour*10)/10) , False, black)
     screen.blit(text,(0,0))
     pygame.display.update()
 

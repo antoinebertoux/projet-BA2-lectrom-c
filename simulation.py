@@ -264,7 +264,7 @@ while True:
             speed_left = 0
         elif dtretour <= 21 and dtretour > 16.25 : # on va tout droit
             speed_left = 100
-            speed_left = 100
+            speed_right = 100
         elif dtretour > 21 : # on fini de deposse les derniers cylindres
             speed_right = 0
             speed_left = 0

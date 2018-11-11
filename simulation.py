@@ -160,16 +160,9 @@ for i in range(len(tube_radius_list)):
 
 car = Car((328,150), 270, background, tube_list)
 
-#PID
 pv = 0
 SP = 10
 error = 0
-last_error = 0
-integral = 0
-KP = 20
-KI = 0
-KD = 0
-correction = 0
 turning = ""
 number_of_turns = 0
 
@@ -224,7 +217,6 @@ while True:
     dt = time.time()-last_time
     last_time = time.time()
 
-    #PID
     sensor_values = car.get_sensors_values()
     total_sum = sensor_values[0] + sensor_values[1] + sensor_values[2]
     if total_sum == 0:
@@ -232,10 +224,8 @@ while True:
     else:
         pv = (sensor_values[0] + sensor_values[1]*10 + sensor_values[2]*20)/total_sum
     error = pv-SP
-    integral += last_error*dt
-    correction = KP * error + KD * (error - last_error)/dt + KI * integral
-    last_error = error
     if turning == "left" or turning == "right":
+        #turning
         if time.time() - turning_start < 0.2:
             speed_left = 50
             speed_right = 50
@@ -252,14 +242,17 @@ while True:
             distance_since_last_turn = 0
             number_of_turns+=1
     else:
+        #following line
         if error == 0 and total_sum<200:
+            #keep following line
             speed_left = 50
             speed_right = 50
         else:
-            if (distance_since_last_turn>390 and number_of_turns % 2==0) or (distance_since_last_turn>150 and number_of_turns % 2==1):
+            if ((distance_since_last_turn>390 and number_of_turns % 2==0) or (distance_since_last_turn>150 and number_of_turns % 2==1))\
+            and number_of_turns < 10:
                 #start turning
                 turning_start = time.time()
-                if correction > 0:
+                if error > 0:
                     turning = "right"
                     speed_left = 50
                     speed_right = -50
@@ -268,9 +261,9 @@ while True:
                     speed_left = -50
                     speed_right = 50
             else:
-                #following line
-                speed_left = 50+correction
-                speed_right = 50-correction
+                #keep following line
+                speed_left = 50+error*10
+                speed_right = 50-error*10
 
     #retour
     dtretour = 0

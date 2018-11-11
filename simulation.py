@@ -11,10 +11,10 @@ blue = (0,0,255)
 green = (0, 255, 0)
 red = (255, 0, 0)
 WHEELS_SPACING = 145
-SENSORS_OFFSET = -5
+SENSORS_OFFSET = -0
 CENTER_OF_ROTATION_OFFSET = -5
-SENSORS_SPACING = 6
-NUMBER_OF_SENSOR = 3
+SENSORS_SPACING = 10
+SENSORS_POS = [(0,-9),(5,0),(0,9)]
 
 class Car:
     def __init__(self, position, angle, background):
@@ -25,7 +25,7 @@ class Car:
         self.sensors_values = []
         self.speed_left = 0.0
         self.speed_right = 0.0
-        for i in range(NUMBER_OF_SENSOR):
+        for i in range(len(SENSORS_POS)):
             self.sensors_values.append(0)
 
     def draw(self, scr):
@@ -46,8 +46,8 @@ class Car:
 
         ###draw sensors
         sensors_center = rect.center  + Vect(-SENSORS_OFFSET, 0).rotate(-self.angle)
-        for i in range(NUMBER_OF_SENSOR):
-            sensor_pos = sensors_center + (i-NUMBER_OF_SENSOR//2)*Vect(0, -SENSORS_SPACING).rotate(-self.angle)
+        for i in range(len(SENSORS_POS)):
+            sensor_pos = sensors_center + Vect(SENSORS_POS[i][0], SENSORS_POS[i][1]).rotate(-self.angle)
             sensor_pos = (int(sensor_pos[0]), int(sensor_pos[1]))
             sensor_value = 0
             if 0 < sensor_pos[0] < 1350 and 0 < sensor_pos[1] < 725:
@@ -121,13 +121,13 @@ def get_background():
     x = 327
     y = 147
     for i in range(6):
-        pygame.draw.line(background, black, (x,y), (x,y+416), 8)
+        pygame.draw.line(background, black, (x,y-3), (x,y+420), 9)
         tube_point_list.append((x,y+100))
         tube_point_list.append((x,y+316))
         if i%2==1 and i<5:
-            pygame.draw.line(background, black, (x,y), (x+167,y), 8)
+            pygame.draw.line(background, black, (x,y), (x+167,y),9)
         elif i<5:
-            pygame.draw.line(background, black, (x,y+416), (x+167,y+416), 8)
+            pygame.draw.line(background, black, (x,y+416), (x+167,y+416), 9)
         x+=167
     return background, tube_point_list
 
@@ -155,7 +155,7 @@ SP = 10
 error = 0
 last_error = 0
 integral = 0
-KP = 35
+KP = 20
 KI = 0
 KD = 0
 correction = 0
@@ -222,20 +222,26 @@ while True:
     integral += last_error*dt
     correction = KP * error + KD * (error - last_error)/dt + KI * integral
     last_error = error
-    speed_left = 50 - correction
-    speed_right = 50 + correction
-    dtretour = 0
+    if error == 0 and total_sum<200:
+        speed_left = 50
+        speed_right = 50
+    elif total_sum == 300:
+        pass
+    else:
+        speed_left = 30+correction
+        speed_right = 20-correction
 
     #retour
+    dtretour = 0
     if not total_sum and not retour0 and not retour : # on est sortie de la route
         tretour = time.time()
         t0 = time.time()
         retour0 = True
-        print(1)
+        #print(1)
     elif retour0 and total_sum >= 10 :# finalement on est a nouveau sur la route
         tretour = 0
         retour0 = False
-        print(2)
+        #print(2)
     elif retour0 and (last_time-tretour> 0.2) : # on est sortie de la route depuis trop longtemps pour que ce soit une erreur donc on desside de rentre
         t0 = time.time()
         retour = True
@@ -243,7 +249,7 @@ while True:
     elif retour : # on a decide de rentre
         t1 = time.time()
         dtretour = t1-t0
-        print(4)
+        #print(4)
         if dtretour <= 4 : # on fait marche arriere
             speed_left = -100
             speed_right = -100

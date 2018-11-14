@@ -15,6 +15,7 @@ SENSORS_OFFSET = -0
 CENTER_OF_ROTATION_OFFSET = -5
 SENSORS_SPACING = 10
 SENSORS_POS = [(0,-9),(5,0),(0,9)]
+PROXIMITY_SENSOR_OFFSET = 60
 
 class Car:
     def __init__(self, position, angle, background, tube_list):
@@ -22,13 +23,14 @@ class Car:
         self.angle = angle
         self.car_img = pygame.image.load('car.png').convert_alpha()
         self.background = background
-        self.sensors_values = []
+        self.line_sensors_values = []
         self.speed_left = 0.0
         self.speed_right = 0.0
         self.tube_list = tube_list
         self.stocked_tube_list = []
+        self.proximity_sensor_value = -1
         for i in range(len(SENSORS_POS)):
-            self.sensors_values.append(0)
+            self.line_sensors_values.append(0)
 
     def draw(self, scr):
         """Draw the car on the surface scr
@@ -46,7 +48,7 @@ class Car:
         pygame.draw.circle(scr, black, (int(wheel_L_pos[0]), int(wheel_L_pos[1])), 5, 0)
         pygame.draw.circle(scr, black, (int(wheel_R_pos[0]), int(wheel_R_pos[1])), 5, 0)
 
-        ###draw sensors
+        ###draw line sensors
         sensors_center = rect.center  + Vect(-SENSORS_OFFSET, 0).rotate(-self.angle)
         for i in range(len(SENSORS_POS)):
             sensor_pos = sensors_center + Vect(SENSORS_POS[i][0], SENSORS_POS[i][1]).rotate(-self.angle)
@@ -55,12 +57,36 @@ class Car:
             if 0 < sensor_pos[0] < 1350 and 0 < sensor_pos[1] < 725:
                 if self.background.get_at(sensor_pos) == black:
                     sensor_value = 100
-            self.sensors_values[i] = sensor_value
+            self.line_sensors_values[i] = sensor_value
             if sensor_value > 50:
                 color = red
             else:
                 color = green
             pygame.draw.circle(scr, color, sensor_pos, 3, 0)
+
+        ###proximity sensors
+        direction_vector = Vect(1,0).rotate(-self.angle)
+        current_pos = self.position + direction_vector*PROXIMITY_SENSOR_OFFSET
+        proximity_sensors_pos = (int(current_pos[0]), int(current_pos[1]))
+        distance = 0
+        found = False
+        while distance < 150 and not found:
+            current_pos += direction_vector
+            distance += 1
+            for tube in self.tube_list:
+                if tube.is_inside(current_pos):
+                    found = True
+                    print(distance)
+                    break
+
+        if found == True:
+            color = (255-distance*150/150,0,0) #red
+            self.proximity_sensor_value = distance
+        else:
+            color = green
+            self.proximity_sensor_value = -1
+        pygame.draw.circle(scr, color, proximity_sensors_pos, 5, 0)
+
 
     def update_pos(self, dt):
         """Compute the change in angle and position during the duration dt with current motor speeds
@@ -94,11 +120,12 @@ class Car:
         else:
             self.speed_right = speed_right
 
-    def get_sensors_values(self):
+    def get_line_sensors_values(self):
         """Return a list of integers that contains the line sensor values from left to right
         """
-        return self.sensors_values
-
+        return self.line_sensors_values
+    def get_proximity_sensor_value(self):
+        return self.proximity_sensor_value
 class Tube:
     def __init__(self, position, radius):
         self.position = position
@@ -175,6 +202,8 @@ speed_left, speed_right, speed_left_manual,speed_right_manual, speed_left_change
 stop = True
 last_time = time.time()
 distance_since_last_turn = 0
+slowing_down = False
+slowing_down_start = 0
 
 ##### Main loop ######
 while True:
@@ -217,13 +246,29 @@ while True:
     dt = time.time()-last_time
     last_time = time.time()
 
-    sensor_values = car.get_sensors_values()
+    sensor_values = car.get_line_sensors_values()
     total_sum = sensor_values[0] + sensor_values[1] + sensor_values[2]
     if total_sum == 0:
         pv = 10
     else:
         pv = (sensor_values[0] + sensor_values[1]*10 + sensor_values[2]*20)/total_sum
     error = pv-SP
+
+    proximity_sensor_value = car.get_proximity_sensor_value()
+    if 0 < proximity_sensor_value < 20 and not slowing_down:
+        #start slowing down
+        slowing_down_start = time.time()
+        slowing_down = True
+
+    if time.time()-slowing_down_start > 2:
+        #stop slowing down
+        slowing_down = False
+
+    if slowing_down:
+        default_speed = 30
+    else:
+        default_speed = 65
+
     if turning == "left" or turning == "right":
         #turning
         if time.time() - turning_start < 0.2:
@@ -245,8 +290,8 @@ while True:
         #following line
         if error == 0 and total_sum<200:
             #keep following line
-            speed_left = 50
-            speed_right = 50
+            speed_left = default_speed
+            speed_right = default_speed
         else:
             if ((distance_since_last_turn>390 and number_of_turns % 2==0) or (distance_since_last_turn>150 and number_of_turns % 2==1))\
             and number_of_turns < 10:
@@ -262,8 +307,8 @@ while True:
                     speed_right = 50
             else:
                 #keep following line
-                speed_left = 50+error*10
-                speed_right = 50-error*10
+                speed_left = default_speed + error*7
+                speed_right = default_speed - error*7
 
     #retour
     dtretour = 0

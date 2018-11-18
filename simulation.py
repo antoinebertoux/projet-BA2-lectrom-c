@@ -76,7 +76,6 @@ class Car:
             for tube in self.tube_list:
                 if tube.is_inside(current_pos):
                     found = True
-                    print(distance)
                     break
 
         if found == True:
@@ -297,7 +296,7 @@ while True:
             and number_of_turns < 10:
                 #start turning
                 turning_start = time.time()
-                if error > 0:
+                if (number_of_turns//2)%2 == 1:
                     turning = "right"
                     speed_left = 50
                     speed_right = -50

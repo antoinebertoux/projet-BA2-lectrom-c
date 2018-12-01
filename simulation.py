@@ -6,13 +6,13 @@ import math
 import time
 
 white = (255,255,255)
-black = (0,0,0)
+black = (50,50,50)
 blue = (0,0,255)
 green = (0, 255, 0)
 red = (255, 0, 0)
-WHEELS_SPACING = 145
-SENSORS_OFFSET = -0
-CENTER_OF_ROTATION_OFFSET = -5
+WHEELS_SPACING = 152
+SENSORS_OFFSET = 0
+CENTER_OF_ROTATION_OFFSET = 1
 SENSORS_SPACING = 10
 SENSORS_POS = [(0,-9),(5,0),(0,9)]
 PROXIMITY_SENSOR_OFFSET = 60
@@ -36,17 +36,17 @@ class Car:
         """Draw the car on the surface scr
         """
         ###draw image
-        rotated_image = pygame.transform.rotate(self.car_img, self.angle)
+        rotated_image = pygame.transform.rotozoom(self.car_img, self.angle,1)
         rect = rotated_image.get_rect()
         rect.center = self.position + Vect(-CENTER_OF_ROTATION_OFFSET, 0).rotate(-self.angle)
         scr.blit(rotated_image, rect)
 
         ###draw center of rotation and wheels
-        pygame.draw.circle(scr, white, (int(self.position[0]), int(self.position[1])) , 2, 0)
-        wheel_L_pos = self.position + Vect(0, WHEELS_SPACING/2).rotate(-self.angle)
-        wheel_R_pos = self.position + Vect(0, -WHEELS_SPACING/2).rotate(-self.angle)
-        pygame.draw.circle(scr, black, (int(wheel_L_pos[0]), int(wheel_L_pos[1])), 5, 0)
-        pygame.draw.circle(scr, black, (int(wheel_R_pos[0]), int(wheel_R_pos[1])), 5, 0)
+        #pygame.draw.circle(scr, white, (int(self.position[0]), int(self.position[1])) , 2, 0)
+        #wheel_L_pos = self.position + Vect(0, WHEELS_SPACING/2).rotate(-self.angle)
+        #wheel_R_pos = self.position + Vect(0, -WHEELS_SPACING/2).rotate(-self.angle)
+        #pygame.draw.circle(scr, red, (int(wheel_L_pos[0]), int(wheel_L_pos[1])), 1, 0)
+        #pygame.draw.circle(scr, red, (int(wheel_R_pos[0]), int(wheel_R_pos[1])), 1, 0)
 
         ###draw line sensors
         sensors_center = rect.center  + Vect(-SENSORS_OFFSET, 0).rotate(-self.angle)
@@ -61,7 +61,7 @@ class Car:
             if sensor_value > 50:
                 color = red
             else:
-                color = green
+                color = (192,133,133)
             pygame.draw.circle(scr, color, sensor_pos, 3, 0)
 
         ###proximity sensors
@@ -73,6 +73,8 @@ class Car:
         while distance < 150 and not found:
             current_pos += direction_vector
             distance += 1
+            if distance%14==0:
+                pygame.draw.circle(scr, red, (int(current_pos[0]),int(current_pos[1])), 1, 0)
             for tube in self.tube_list:
                 if tube.is_inside(current_pos):
                     found = True
@@ -82,9 +84,9 @@ class Car:
             color = (255-distance*150/150,0,0) #red
             self.proximity_sensor_value = distance
         else:
-            color = green
+            color = (192,133,133)
             self.proximity_sensor_value = -1
-        pygame.draw.circle(scr, color, proximity_sensors_pos, 5, 0)
+        pygame.draw.circle(scr, color, proximity_sensors_pos, 2, 0)
 
 
     def update_pos(self, dt):
@@ -133,7 +135,7 @@ class Tube:
     def draw(self, scr):
         """Draw the tube on the surface scr
         """
-        pygame.draw.circle(scr, blue, self.position, self.radius, 0)
+        pygame.draw.circle(scr, (38,74,165), self.position, self.radius, 0)
 
     def set_pos(self, pos):
         """Set the center position of the tube
@@ -203,6 +205,7 @@ last_time = time.time()
 distance_since_last_turn = 0
 slowing_down = False
 slowing_down_start = 0
+angle_turned = 90
 
 ##### Main loop ######
 while True:
@@ -270,10 +273,10 @@ while True:
 
     if turning == "left" or turning == "right":
         #turning
-        if time.time() - turning_start < 0.2:
+        if time.time() - turning_start < 0.1:
             speed_left = 50
             speed_right = 50
-        elif time.time() - turning_start < 2.35:
+        elif abs(angle_turned)<=90:
             if turning == "left":
                 speed_left = -50
                 speed_right = 50
@@ -285,6 +288,8 @@ while True:
             turning = ""
             distance_since_last_turn = 0
             number_of_turns+=1
+            speed_left = 50
+            speed_right = 50
     else:
         #following line
         if error == 0 and total_sum<200:
@@ -296,6 +301,7 @@ while True:
             and number_of_turns < 10:
                 #start turning
                 turning_start = time.time()
+                angle_turned = 0
                 if (number_of_turns//2)%2 == 1:
                     turning = "right"
                     speed_left = 50
@@ -306,8 +312,8 @@ while True:
                     speed_right = 50
             else:
                 #keep following line
-                speed_left = default_speed + error*7
-                speed_right = default_speed - error*7
+                speed_left = default_speed + error*3
+                speed_right = default_speed - error*3
 
     #retour
     dtretour = 0
@@ -358,6 +364,7 @@ while True:
 
 
     distance_since_last_turn += float(speed_left+speed_right)/2*dt
+    angle_turned += math.degrees(float(speed_left-speed_right)/WHEELS_SPACING*dt)
 
     car.set_speed(speed_left, speed_right)
 

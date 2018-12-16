@@ -5,14 +5,17 @@ import random
 import math
 import time
 
+
+WHEELS_SPACING = 152
+WHEEL_RADIUS = 30
+
 white = (255,255,255)
 black = (50,50,50)
 blue = (0,0,255)
 green = (0, 255, 0)
 red = (255, 0, 0)
-WHEELS_SPACING = 152
 SENSORS_OFFSET = 0
-CENTER_OF_ROTATION_OFFSET = 1
+CENTER_OF_ROTATION_OFFSET = 0
 SENSORS_SPACING = 10
 SENSORS_POS = [(10,-6),(0,0),(10,6)]
 PROXIMITY_SENSOR_OFFSET = 60
@@ -92,8 +95,8 @@ class Car:
     def update_pos(self, dt):
         """Compute the change in angle and position during the duration dt with current motor speeds
         """
-        angular_speed = float(self.speed_left-self.speed_right)/WHEELS_SPACING
-        linear_speed = float(self.speed_left+self.speed_right)/2
+        angular_speed = WHEEL_RADIUS*float(self.speed_left-self.speed_right)/WHEELS_SPACING
+        linear_speed = WHEEL_RADIUS*float(self.speed_left+self.speed_right)/2
         self.angle -= math.degrees(angular_speed*dt)
         self.position[0] += linear_speed*math.cos(math.radians(self.angle))*dt
         self.position[1] -= linear_speed*math.sin(math.radians(self.angle))*dt
@@ -106,27 +109,20 @@ class Car:
     def set_speed(self, speed_left, speed_right):
         """Set the speed of both motors
         """
-        DIFF = 100 #depends on acceleration/inertia
-        if speed_left+DIFF < self.speed_left:
-            self.speed_left -= DIFF
-        elif speed_left-DIFF > self.speed_left:
-            self.speed_left += DIFF
-        else:
-            self.speed_left = speed_left
+        self.speed_right = speed_right*2.6
+        self.speed_left = speed_left*2.6
 
-        if speed_right+DIFF < self.speed_right:
-            self.speed_right -= DIFF
-        elif speed_right-DIFF > self.speed_right:
-            self.speed_right += DIFF
-        else:
-            self.speed_right = speed_right
 
     def get_line_sensors_values(self):
         """Return a list of integers that contains the line sensor values from left to right
         """
         return self.line_sensors_values
+
     def get_proximity_sensor_value(self):
         return self.proximity_sensor_value
+
+    def get_speeds(self):
+        return self.speed_left, self.speed_right
 
 class Tube:
     def __init__(self, position, radius):
@@ -150,7 +146,7 @@ class Tube:
         return self.radius
 
 class Simulator:
-    def __init__(self):
+    def __init__(self,(x,y,angle)):
         self.screen = pygame.display.set_mode((1350,725))
         pygame.init()
         pygame.display.set_caption('Simulation groupe 10')
@@ -164,8 +160,7 @@ class Simulator:
 
         for i in range(len(tube_radius_list)):
             self.tube_list.append(Tube(tube_point_list[i], tube_radius_list[i]))
-
-        self.car = Car((328,150), 270, self.background, self.tube_list)
+        self.car = Car((x,y),angle, self.background, self.tube_list)
 
         self.speed_left_manual,self.speed_right_manual, self.speed_left_change, self.speed_right_change, self.angle_change, self.speed  = 0,0,0,0,0,0
         self.stop = True
@@ -200,21 +195,21 @@ class Simulator:
                      sys.exit()
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_LEFT:
-                        self.angle_change = 100
+                        self.angle_change = 2
                     elif event.key == pygame.K_RIGHT:
-                        self.angle_change = -100
+                        self.angle_change = -2
                     elif event.key == pygame.K_UP:
-                        self.speed = 110
+                        self.speed = 2
                     elif event.key == pygame.K_DOWN:
-                        self.speed = -110
+                        self.speed = -2
                     elif event.key == pygame.K_u:
-                        self.speed_left_change = 3
+                        self.speed_left_change = 1
                     elif event.key == pygame.K_j:
-                        self.speed_left_change = -3
+                        self.speed_left_change = -1
                     elif event.key == pygame.K_o:
-                        self.speed_right_change = 3
+                        self.speed_right_change = 1
                     elif event.key == pygame.K_l:
-                        self.speed_right_change = -3
+                        self.speed_right_change = -1
                     elif event.key == pygame.K_SPACE:
                         self.stop = not self.stop
                     elif event.key == pygame.K_q:
@@ -238,7 +233,7 @@ class Simulator:
         self.last_time = time.time()
         self.car.draw(self.screen)
         text = self.myfont.render('x:'+str(round(self.car.position[0])) + ' y:'+str(round(self.car.position[1]))  + ' angle:'+str(round(self.car.angle))\
-         + ' Motors speeds: '+str(round(self.car.speed_left))+' | '+str(round(self.car.speed_right))+text , False, black)
+         + ' Motors speeds: '+str(round(self.car.speed_left))+' | '+str(round(self.car.speed_right))+ ' ' +text , False, black)
         self.screen.blit(text,(0,0))
         pygame.display.update()
 
@@ -259,3 +254,6 @@ class Simulator:
 
     def get_proximity_sensor_value(self):
         return self.car.get_proximity_sensor_value()
+
+    def get_true_speeds(self):
+        return self.car.get_speeds()

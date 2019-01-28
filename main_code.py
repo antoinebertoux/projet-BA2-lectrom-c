@@ -15,6 +15,7 @@ WHEEL_RADIUS = 30
 SLOW_SPEED = 0.4
 NORMAL_SPEED = 1
 TURNING_SPEED = 0.8
+START_TURN_DELAY = 5
 
 error = 0
 turning = ""
@@ -30,12 +31,14 @@ slowing_down_start = 0
 slowing_down_distance = 0
 angle_turned = 90
 distance_step = 0
-start_turn_delay = 0
+start_turn_delay_count = 0
 angle_step = 0
-Kp =0.15
-start_turn_delay
+Kp =0.05
 last_time = time.time()
 current_time = time.time()
+breakbeam_value = False
+diameter = 0
+last_diameter = 0
 
 ######
 #LOOP#
@@ -60,9 +63,18 @@ while True:
         slowing_down_distance = 0
         slowing_down = True
 
-    if slowing_down_distance > 70:
+    if slowing_down and slowing_down_distance > 70:
         #stop slowing down
         slowing_down = False
+        last_diameter = diameter
+        DIAMETER_TOLERANCES = [13, 18, 22, 27]
+        if DIAMETER_TOLERANCES[0] < diameter <= DIAMETER_TOLERANCES[1]:
+            print("petit")
+        elif DIAMETER_TOLERANCES[1] < diameter <= DIAMETER_TOLERANCES[2]:
+            print("moyen")
+        elif DIAMETER_TOLERANCES[2] < diameter <= DIAMETER_TOLERANCES[3]:
+            print("grand")
+        diameter = 0
 
     if slowing_down:
         default_speed = SLOW_SPEED
@@ -70,11 +82,15 @@ while True:
     else:
         default_speed = NORMAL_SPEED
 
+    breakbeam_value = simulator.get_breakbeam_value()
+    if breakbeam_value:
+        diameter += distance_step
+
     if turning == "left" or turning == "right":
         #turning
-        if 0 <= start_turn_delay < 1:
-            start_turn_delay += distance_step
-        elif abs(angle_turned)<=90 and start_turn_delay > 1:
+        if 0 <= start_turn_delay_count < START_TURN_DELAY:
+            start_turn_delay_count += distance_step
+        elif abs(angle_turned)<=90 and start_turn_delay_count > START_TURN_DELAY:
             if turning == "left":
                 speed_left = -TURNING_SPEED
                 speed_right = TURNING_SPEED
@@ -100,7 +116,7 @@ while True:
 
                 #start turning
                 angle_turned = 0
-                start_turn_delay = 0
+                start_turn_delay_count = 0
                 speed_left = default_speed
                 speed_right = default_speed
                 if (number_of_turns//2)%2 == 1:
@@ -176,7 +192,11 @@ while True:
 
     simulator.set_motor_speeds(speed_left, speed_right)
 
-    text_to_display = 'Error: '+str(error) + ' Angle_turned: ' +str(round(angle_turned)) + ' distance: ' + str(round(distance_since_last_turn))
+    text_to_display = 'Error: '+str(error) + ' Angle_turned: ' +str(
+
+int(round(angle_turned))) + ' distance: ' + str(
+
+int(round(distance_since_last_turn)))+ ' diameter: ' + str(round(last_diameter,2))
 
     simulator.end_loop(text_to_display)
     time.sleep(0.05)

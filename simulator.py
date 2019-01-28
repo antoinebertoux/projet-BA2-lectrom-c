@@ -19,6 +19,8 @@ CENTER_OF_ROTATION_OFFSET = 0
 SENSORS_SPACING = 10
 SENSORS_POS = [(10,-6),(0,0),(10,6)]
 PROXIMITY_SENSOR_OFFSET = 60
+BREAKBEAM_SPACING = 38
+BREAKBEAM_OFFSET = 58
 
 class Car:
     def __init__(self, position, angle, background, tube_list):
@@ -32,6 +34,7 @@ class Car:
         self.tube_list = tube_list
         self.stocked_tube_list = []
         self.proximity_sensor_value = -1
+        self.breakbeam_value = False
         for i in range(len(SENSORS_POS)):
             self.line_sensors_values.append(0)
 
@@ -91,6 +94,27 @@ class Car:
             self.proximity_sensor_value = -1
         pygame.draw.circle(scr, color, proximity_sensors_pos, 2, 0)
 
+        ###breakbeam sensors
+        direction_vector = Vect(0,1).rotate(-self.angle)
+        current_pos = self.position + Vect(BREAKBEAM_OFFSET,-BREAKBEAM_SPACING//2).rotate(-self.angle)
+        breakbeam1_pos = (int(current_pos[0]), int(current_pos[1]))
+        distance = 0
+        found = False
+        while distance < BREAKBEAM_SPACING:
+            current_pos += direction_vector
+            distance += 1
+            for tube in self.tube_list:
+                if tube.is_inside(current_pos):
+                    found = True
+        breakbeam2_pos = (int(current_pos[0]), int(current_pos[1]))
+        if found == True:
+            color = red
+            self.breakbeam_value = True
+        else:
+            color = (192,133,133)
+            self.breakbeam_value = False
+        pygame.draw.circle(scr, color, breakbeam1_pos, 3, 0)
+        pygame.draw.circle(scr, color, breakbeam2_pos, 3, 0)
 
     def update_pos(self, dt):
         """Compute the change in angle and position during the duration dt with current motor speeds
@@ -120,6 +144,9 @@ class Car:
 
     def get_proximity_sensor_value(self):
         return self.proximity_sensor_value
+
+    def get_breakbeam_value(self):
+        return self.breakbeam_value
 
     def get_speeds(self):
         return self.speed_left, self.speed_right
@@ -232,8 +259,18 @@ class Simulator:
         self.car.update_pos(time.time()-self.last_time)
         self.last_time = time.time()
         self.car.draw(self.screen)
-        text = self.myfont.render('x:'+str(round(self.car.position[0])) + ' y:'+str(round(self.car.position[1]))  + ' angle:'+str(round(self.car.angle))\
-         + ' Motors speeds: '+str(round(self.car.speed_left))+' | '+str(round(self.car.speed_right))+ ' ' +text , False, black)
+        text = self.myfont.render('x:'+str(
+
+int(round(self.car.position[0]))) + ' y:'+str(
+
+int(round(self.car.position[1])))  + ' angle:'+str(
+
+int(round(self.car.angle)))\
+         + ' Motors speeds: '+str(
+
+int(round(self.car.speed_left)))+' | '+str(
+
+int(round(self.car.speed_right)))+ ' ' +text , False, black)
         self.screen.blit(text,(0,0))
         pygame.display.update()
 
@@ -254,6 +291,9 @@ class Simulator:
 
     def get_proximity_sensor_value(self):
         return self.car.get_proximity_sensor_value()
+
+    def get_breakbeam_value(self):
+        return self.car.get_breakbeam_value()
 
     def get_true_speeds(self):
         return self.car.get_speeds()

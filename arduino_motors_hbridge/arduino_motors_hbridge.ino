@@ -1,91 +1,88 @@
-//motor A connected between A01 and A02
-//motor B connected between B01 and B02
-int STBY = 10; //standby
+//motors
+int STBY = 10;
+int PWMA = 9;
+int AIN1 = 7;
+int AIN2 = 8;
+int PWMB = 10;
+int BIN1 = 11;
+int BIN2 = 12;
 
-//Motor A
-int PWMA = 9; // 3; //Speed control
-int AIN1 = 7; // 9; //Direction
-int AIN2 = 8; //Direction
-
-//Motor B
-int PWMB = 5; //Speed control
-int BIN1 = 11; //Direction
-int BIN2 = 12; //Direction
+//encoder
 long encoderValue=0;
+void count(void);
+void count(){encoderValue++;}
 
-void count(void); // code for counting the increasing values of encoder ticks void setup()
-void count()
+//main code
+float NORMAL_SPEED = 1;
+float SLOW_SPEED = 0.4;
+float TURNING_SPEED = 0.8;
 
-{
+float speed_right;
+float speed_left;
 
-encoderValue++;
-}
+
 void setup(){
-Serial.begin(9600);
+  //serial
+  Serial.begin(9600);
+  Serial.println("Started");
 
-pinMode(3,INPUT);
+  //motors
+  pinMode(STBY, OUTPUT);
+  pinMode(PWMA, OUTPUT);
+  pinMode(AIN1, OUTPUT);
+  pinMode(AIN2, OUTPUT);
+  pinMode(PWMB, OUTPUT);
+  pinMode(BIN1, OUTPUT);
+  pinMode(BIN2, OUTPUT);
 
-attachInterrupt(digitalPinToInterrupt(3),count,FALLING);
-
-Serial.println("Hello");
-encoderValue=0;
- 
-pinMode(STBY, OUTPUT);
-
-pinMode(PWMA, OUTPUT);
-pinMode(AIN1, OUTPUT);
-pinMode(AIN2, OUTPUT);
-
-pinMode(PWMB, OUTPUT);
-pinMode(BIN1, OUTPUT);
-pinMode(BIN2, OUTPUT);
+  //encoder
+  encoderValue=0;
+  pinMode(3,INPUT);
+  attachInterrupt(digitalPinToInterrupt(3),count,FALLING);
 }
+
+
 void loop(){
-Serial.println(encoderValue);
+  //debug
+  Serial.println(encoderValue);
+
+  //main code
+  speed_left = NORMAL_SPEED;
+  speed_right = NORMAL_SPEED;
+
+  //motors
+  set_motors_speed(speed_left, speed_right);
+
+  delay(300);
+}
+
+
+void set_motors_speed(float speed_l, float speed_r){
+  digitalWrite(STBY, HIGH);
   
-move(1, 255, 1); //motor 1, full speed, left
-move(2, 255, 1); //motor 2, full speed, left
-
-delay(1000); //go for 1 second
-//stop(); //stop
-delay(250); //hold for 250ms until move again
-
-//move(1, 100, 0); //motor 1, half speed, right 
-//move(2, 255, 0); //motor 2, half speed, right
-
-delay(1000);
-stop();
-delay(250);
-}
-
-void move(int motor, int speed, int direction){
-//Move specific motor at speed and direction
-//motor: 0 for B 1 for A
-//speed: 0 is off, and 255 is full speed
-//direction: 0 clockwise, 1 counter-clockwise
-
-digitalWrite(STBY, HIGH); //disable standby
-
-boolean inPin1 = LOW;
-boolean inPin2 = HIGH;
-
-if(direction == 1){
-inPin1 = HIGH;
-inPin2 = LOW;
-}
-
-if(motor == 1){
-digitalWrite(AIN1, inPin1);
-digitalWrite(AIN2, inPin2);
-analogWrite(PWMA, speed);
-}else{
-digitalWrite(BIN1, inPin1);
-digitalWrite(BIN2, inPin2);
-analogWrite(PWMB, speed);
-}
+  boolean inPin1L = LOW;
+  boolean inPin2L = HIGH;
+  if(speed_l<0){
+  inPin1L = HIGH;
+  inPin2L = LOW;
+  }
+  
+  boolean inPin1R = LOW;
+  boolean inPin2R = HIGH;
+  if(speed_r<0){
+  inPin1R = HIGH;
+  inPin2R = LOW;
+  }
+  
+  digitalWrite(AIN1, inPin1L);
+  digitalWrite(AIN2, inPin2L);
+  analogWrite(PWMA, int(max(1,abs(speed_l))*255));
+  
+  digitalWrite(BIN1, inPin1R);
+  digitalWrite(BIN2, inPin2R);
+  analogWrite(PWMB, int(max(1,abs(speed_r))*255));
 }
 
 void stop(){
-//enable standby
 digitalWrite(STBY, LOW);
 }

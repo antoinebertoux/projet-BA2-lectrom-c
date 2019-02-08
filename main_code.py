@@ -16,6 +16,9 @@ SLOW_SPEED = 0.4
 NORMAL_SPEED = 1
 TURNING_SPEED = 0.8
 START_TURN_DELAY = 5
+DIAMETER_TOLERANCES = [13, 18, 22, 27]
+TURN_AFTER_DISTANCE_1 = 390
+TURN_AFTER_DISTANCE_2 = 140
 
 error = 0
 turning = ""
@@ -33,7 +36,7 @@ angle_turned = 90
 distance_step = 0
 start_turn_delay_count = 0
 angle_step = 0
-Kp =0.05
+K =0.05
 last_time = time.time()
 current_time = time.time()
 breakbeam_value = False
@@ -67,7 +70,6 @@ while True:
         #stop slowing down
         slowing_down = False
         last_diameter = diameter
-        DIAMETER_TOLERANCES = [13, 18, 22, 27]
         if DIAMETER_TOLERANCES[0] < diameter <= DIAMETER_TOLERANCES[1]:
             print("petit")
         elif DIAMETER_TOLERANCES[1] < diameter <= DIAMETER_TOLERANCES[2]:
@@ -111,22 +113,21 @@ while True:
             speed_left = default_speed
             speed_right = default_speed
         else:
-            if ((distance_since_last_turn>400 and number_of_turns % 2==0) or (distance_since_last_turn>150 and number_of_turns % 2==1))\
-            and number_of_turns < 10 and ((number_of_turns//2)%2 == 1) == (error>0):
-
-                #start turning
-                angle_turned = 0
-                start_turn_delay_count = 0
-                speed_left = default_speed
-                speed_right = default_speed
-                if (number_of_turns//2)%2 == 1:
-                    turning = "right"
-                else:
-                    turning = "left"
+            if ((distance_since_last_turn>TURN_AFTER_DISTANCE_1 and number_of_turns % 2==0) or (distance_since_last_turn>TURN_AFTER_DISTANCE_2 and number_of_turns % 2==1)) and  number_of_turns < 10\
+                and (((number_of_turns//2)%2 == 1 and sensor_values[2]) or (number_of_turns//2)%2 == 0 and sensor_values[0]):
+                    #start turning
+                    angle_turned = 0
+                    start_turn_delay_count = 0
+                    speed_left = default_speed
+                    speed_right = default_speed
+                    if (number_of_turns//2)%2 == 1:
+                        turning = "right"
+                    else:
+                        turning = "left"
             else:
                 #keep following line
-                speed_left = default_speed + error*Kp
-                speed_right = default_speed - error*Kp
+                speed_left = default_speed + error*K
+                speed_right = default_speed - error*K
 
     #retour
     dtretour = 0

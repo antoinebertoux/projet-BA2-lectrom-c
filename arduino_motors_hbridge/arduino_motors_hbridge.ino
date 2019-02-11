@@ -29,9 +29,9 @@ volatile unsigned long right_count = 0;
 #define KP_R .12
 #define KI_R .0003
 #define KD_R 0
-double true_speed_left, speed_left, tension_left, true_speed_right, speed_right, tension_right;
-AutoPID myPID_L(&true_speed_left, &speed_left, &tension_left, -255, 255, KP_L, KI_L, KD_L);
-AutoPID myPID_R(&true_speed_right, &speed_right, &tension_right, -255, 255, KP_R, KI_R, KD_R);
+double true_speed_left, speed_left, tension_left, true_speed_right, speed_right, tension_right, delta_tension_right, delta_tension_left;
+AutoPID myPID_L(&true_speed_left, &speed_left, &delta_tension_left, -255, 255, KP_L, KI_L, KD_L);
+AutoPID myPID_R(&true_speed_right, &speed_right, &delta_tension_right, -255, 255, KP_R, KI_R, KD_R);
 unsigned long last_measure_update;
 
 //main code
@@ -116,25 +116,27 @@ void count_right() {
 void update_motors_tension(){
   tension_left = 128;// a enlever
   tension_right = 128;// a enlever
-  boolean inPin1L = LOW;
-  boolean inPin2L = HIGH;
-  if(tension_left<0){
-  inPin1L = HIGH;
-  inPin2L = LOW;
+  tension_left = update_tension(tension_left+delta_tension_left, 1);
+  tension_right = update_tension(tension_right+delta_tension_right, 0);
+}
+
+double update_tension(int tension, int motor){
+  if (tension>255)tension = 255;
+  if (tension<-255)tension = -255;
+  boolean inPin1 = LOW;
+  boolean inPin2 = HIGH;
+  if(tension<0){
+  inPin1 = HIGH;
+  inPin2 = LOW;
   }
-  
-  boolean inPin1R = LOW;
-  boolean inPin2R = HIGH;
-  if(tension_right<0){
-  inPin1R = HIGH;
-  inPin2R = LOW;
+  if(motor == 1){
+  digitalWrite(LIN1, inPin1);
+  digitalWrite(LIN2, inPin2);
+  analogWrite(PWML, abs(tension));
+  }else{
+  digitalWrite(RIN1, inPin1);
+  digitalWrite(RIN2, inPin2);
+  analogWrite(PWMR, abs(tension));
   }
-  
-  digitalWrite(LIN1, inPin1L);
-  digitalWrite(LIN2, inPin2L);
-  analogWrite(PWML, abs(tension_left));
-  
-  //digitalWrite(RIN1, inPin1R);
-  //digitalWrite(RIN2, inPin2R);
-  //analogWrite(PWMR, abs(tension_right));
+  return tension;
 }

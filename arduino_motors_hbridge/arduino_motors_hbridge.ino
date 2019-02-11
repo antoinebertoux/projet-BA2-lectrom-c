@@ -26,6 +26,8 @@ volatile long right_count = 0;
 #define BREAKBEAM_PIN 12
 
 //line sensors
+#define LINE_PIN_L A0
+#define LINE_PIN_M A1
 #define LINE_PIN_R A2
 
 //PID
@@ -49,6 +51,7 @@ long WHEEL_RADIUS= 60; //en mm
 long distance_step;
 long distance_since_last_turn;
 long start_time = millis();
+int sensor_left,sensor_middle,sensor_right;
 void setup(){
   //serial
   Serial.begin(9600);
@@ -74,6 +77,8 @@ void setup(){
   digitalWrite(BREAKBEAM_PIN, HIGH);
 
   //line sensors
+  pinMode(LINE_PIN_L, INPUT);
+  pinMode(LINE_PIN_M, INPUT);
   pinMode(LINE_PIN_R, INPUT);
   
   //PID
@@ -89,7 +94,11 @@ void loop(){
  // Serial.print(" ");
   //Serial.println(speed_left);
   //Serial.println(digitalRead(BREAKBEAM_PIN));
-  Serial.println(analogRead(LINE_PIN_R));
+  
+   //sensor_left = analogRead(LINE_PIN_L);
+   //sensor_middle = analogRead(LINE_PIN_M);
+   //sensor_right = analogRead(LINE_PIN_R);
+  Serial.println(analogRead(LINE_PIN_L));
   //main code
   //speed_left = NORMAL_SPEED*sin((millis()-start_time)/10000.0);
   speed_left = 0;

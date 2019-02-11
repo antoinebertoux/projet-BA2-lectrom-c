@@ -29,7 +29,7 @@ volatile unsigned long right_count = 0;
 #define KP_R .12
 #define KI_R .0003
 #define KD_R 0
-double true_speed_left, speed_left, tension_left, true_speed_right, speed_right, tension_right, delta_tension_right, delta_tension_left;
+long true_speed_left, speed_left, tension_left, true_speed_right, speed_right, tension_right, delta_tension_right, delta_tension_left;
 AutoPID myPID_L(&true_speed_left, &speed_left, &delta_tension_left, -255, 255, KP_L, KI_L, KD_L);
 AutoPID myPID_R(&true_speed_right, &speed_right, &delta_tension_right, -255, 255, KP_R, KI_R, KD_R);
 unsigned long last_measure_update;
@@ -91,25 +91,25 @@ void loop(){
 }
 
 
-void update_measured_speeds(){
+void update_measured_speeds(){ // permet de connaitre la vitesse de rotation des moteurs
   if ((millis() - last_measure_update) > DELTA_T) {
-    true_speed_left=WHEEL_RADIUS*6283*left_count/(2940*DELTA_T);//6283=2*pi*1000 //2940=7*2*210=pulses per rotation
+    true_speed_left=WHEEL_RADIUS*6283*left_count/(2940*DELTA_T);//6283=2*pi*1000 //2940=7*2*210=pulses par rotation
     true_speed_right=WHEEL_RADIUS*6283*right_count/(2940*DELTA_T);
     left_count=0;
     right_count=0;
     last_measure_update = millis();
-    distance_step = (true_speed_left+true_speed_right)*DELTA_T/(2*1000);
-    distance_since_last_turn += distance_step;
+    distance_step = (true_speed_left+true_speed_right)*DELTA_T/(2*1000); // mesure la distance parcourue pendant delta t
+    distance_since_last_turn += distance_step; // mesure la distance total parcourue
   }
 }
 
 void count_left() {
-  if (digitalRead(ENCODER_PIN_A_L) != digitalRead(ENCODER_PIN_B_L))left_count++;
+  if (digitalRead(ENCODER_PIN_A_L) != digitalRead(ENCODER_PIN_B_L))left_count++; // permet de connaitre le sens de rotation du moteur gauche
   else left_count--;
 }
 
 void count_right() {
-  if (digitalRead(ENCODER_PIN_A_R) != digitalRead(ENCODER_PIN_B_R))right_count++;
+  if (digitalRead(ENCODER_PIN_A_R) != digitalRead(ENCODER_PIN_B_R))right_count++; // permet de connaitre le sens de rotation du moteur droit
   else right_count--;
 }
 

@@ -60,17 +60,17 @@ void setup(){
   pinMode(PWML, OUTPUT);
   pinMode(LIN1, OUTPUT);
   pinMode(LIN2, OUTPUT);
-  //pinMode(PWMR, OUTPUT);
-  //pinMode(RIN1, OUTPUT);
-  //pinMode(RIN2, OUTPUT);
+  pinMode(PWMR, OUTPUT);
+  pinMode(RIN1, OUTPUT);
+  pinMode(RIN2, OUTPUT);
 
   //encoder
   pinMode(ENCODER_PIN_A_L,INPUT);
   pinMode(ENCODER_PIN_B_L,INPUT);
-  //pinMode(ENCODER_PIN_A_R,INPUT);
-  //pinMode(ENCODER_PIN_B_R,INPUT);
+  pinMode(ENCODER_PIN_A_R,INPUT);
+  pinMode(ENCODER_PIN_B_R,INPUT);
   attachInterrupt(digitalPinToInterrupt(ENCODER_PIN_A_L),count_left,FALLING);
-  //attachInterrupt(digitalPinToInterrupt(ENCODER_PIN_A_R),count_right,CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ENCODER_PIN_A_R),count_right,FALLING);
 
   //Breakbeam
   pinMode(BREAKBEAM_PIN, INPUT);
@@ -83,31 +83,31 @@ void setup(){
   
   //PID
   myPID_L.setTimeStep(DELTA_T);
-  //myPID_R.setTimeStep(DELTA_T);
+  myPID_R.setTimeStep(DELTA_T);
 }
 
 
 void loop(){
   //debug
   //Serial.println(left_count, right_count);
-  //Serial.print(true_speed_left);
- // Serial.print(" ");
-  //Serial.println(speed_left);
+  Serial.print(true_speed_left);
+  Serial.print(" ");
+  Serial.println(true_speed_right);
   //Serial.println(digitalRead(BREAKBEAM_PIN));
   
    //sensor_left = analogRead(LINE_PIN_L);
    //sensor_middle = analogRead(LINE_PIN_M);
    //sensor_right = analogRead(LINE_PIN_R);
-  Serial.println(analogRead(LINE_PIN_L));
+  //Serial.println(analogRead(LINE_PIN_L));
   //main code
   //speed_left = NORMAL_SPEED*sin((millis()-start_time)/10000.0);
-  speed_left = 0;
-  speed_right = 0;
+  speed_left = 100;
+  speed_right = 100;
   
   //motors PID
   update_measured_speeds();
   myPID_L.run();
-  //myPID_R.run();
+  myPID_R.run();
   update_motors_tension();
   
   delay(300);
@@ -132,13 +132,13 @@ void count_left() {
 }
 
 void count_right() {
-  if (digitalRead(ENCODER_PIN_A_R) != digitalRead(ENCODER_PIN_B_R))right_count--; // permet de connaitre le sens de rotation du moteur droit
-  else right_count++;
+  if (digitalRead(ENCODER_PIN_A_R) != digitalRead(ENCODER_PIN_B_R))right_count++; // permet de connaitre le sens de rotation du moteur droit
+  else right_count--;
 }
 
 void update_motors_tension(){
   tension_left = update_tension(tension_left+delta_tension_left, 1);
-  //tension_right = update_tension(tension_right+delta_tension_right, 0);
+  tension_right = update_tension(tension_right+delta_tension_right, 0);
 }
 
 double update_tension(int tension, int motor){
@@ -153,11 +153,11 @@ double update_tension(int tension, int motor){
   if(motor == 1){
   digitalWrite(LIN1, inPin1);
   digitalWrite(LIN2, inPin2);
-  analogWrite(PWML, abs(tension));
+  analogWrite(PWML, abs(100));
   }else{
   digitalWrite(RIN1, inPin1);
   digitalWrite(RIN2, inPin2);
-  analogWrite(PWMR, abs(speed_left));
+  analogWrite(PWMR, abs(100));
   }
   return tension;
 }

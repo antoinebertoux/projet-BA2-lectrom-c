@@ -49,17 +49,23 @@ unsigned long last_measure_update;
 //main code
 const int DELTA_T=100; // en ms
 const int WHEEL_RADIUS= 60; //en mm
+const int WHEELS_SPACING = 304;
 const int NORMAL_SPEED  = 250; //vitesses en mm/s
 const int SLOW_SPEED  = 150;
 const int TURNING_SPEED = 150;
 const int TURN_AFTER_COUNT_1 = 6000*2;
 const int TURN_AFTER_COUNT_2 = 2200*2;
+const int START_TURN_COUNT_DELAY = 80;
 const int LINE_SENSOR_TOLERANCE = 200;
 const int K = 5;
 unsigned long current_time = millis();
 int sensor_left,sensor_middle,sensor_right, breakbeam;
 int last_breakbeam = 1;
 int tube_enter_count = 0;
+String turning = "";
+int number_of_turns = 0;
+long last_turn_count = 0;
+long start_turning_count = 0;
 
 void setup(){
   //serial
@@ -105,19 +111,58 @@ void loop(){
   current_time = millis();
   
   //MAIN CODE//
-  if(sensor_left == sensor_right){
-    speed_left = 200;
-    speed_right = 200;
-  }
-  else if(sensor_left){
-    speed_left = 150;
-    speed_right = 200;
-  }
-  else if(sensor_right){
-    speed_left = 200;
-    speed_right = 150;
-  }
   
+  speed_left = 200;
+  speed_right = 200;
+  
+  long count_since_last_turn = right_count+left_count-last_turn_count;
+  if(turning == "left" || turning == "right"){
+    //turning
+    long angle_turned = get_angle(start_turning_count - (left_count - right_count));
+    Serial.println(angle_turned);
+    if(0 <= count_since_last_turn <= START_TURN_COUNT_DELAY){}
+    else if (angle_turned<=90 && count_since_last_turn > START_TURN_COUNT_DELAY){
+      if (turning == "left"){
+        speed_left = -TURNING_SPEED;
+        speed_right = TURNING_SPEED;
+      }
+      else{
+        speed_left = TURNING_SPEED;
+        speed_right = -TURNING_SPEED;
+      }
+    }
+    else{
+      //stop turning
+      turning = "";
+      last_turn_count = right_count+left_count;
+      number_of_turns+=1;
+    }
+  }
+  else{
+    //following line
+    if (((count_since_last_turn>TURN_AFTER_COUNT_1 && number_of_turns % 2==0) || (count_since_last_turn>TURN_AFTER_COUNT_2 && number_of_turns % 2==1))
+    && number_of_turns < 10
+    && (((number_of_turns/2)%2 == 1 and sensor_right) || (number_of_turns/2)%2 == 0 and sensor_left)){
+      //start turning
+      Serial.println("Starting turn " + String(number_of_turns+1));
+      last_turn_count = right_count+left_count;
+      start_turning_count = left_count-right_count;
+      if ((number_of_turns/2)%2 == 1) turning = "right";
+      else turning = "left";
+      }
+    else{
+      //keep following line
+      if(sensor_left == sensor_right){}
+      else if(sensor_left){
+        speed_left = 150;
+        speed_right = 200;
+      }
+      else if(sensor_right){
+        speed_left = 200;
+        speed_right = 150;
+      }
+    }
+  }
   //double error = (sensor_left + sensor_middle*10 + sensor_right*20)/double( sensor_left + sensor_middle + sensor_right) - 10;
   //Serial.println(error);
 
@@ -127,7 +172,7 @@ void loop(){
   }
   if (breakbeam && !last_breakbeam) {//tube exit
     double diameter = get_distance(left_count+right_count-tube_enter_count)/2;
-    Serial.println(diameter);
+    Serial.println("Diameter: " + String(diameter));
   }
   last_breakbeam=breakbeam;
   
@@ -163,10 +208,12 @@ void update_measured_speeds(unsigned long delta_t){ // permet de connaitre la vi
   last_right_count = right_count;
 }
 
-double get_distance(long count){ //renvoie la distance parcourure en fonction du nombre de pulses des encodeurs
+double get_distance(long count){ //renvoie la distance parcourue en fonction du nombre de pulses des encodeurs
   return double(WHEEL_RADIUS*2*PI*count)/2940; //2940=7*2*210=pulses par rotation
 }
-
+double get_angle(long count){//renvoie l'angle tourné en fonction de la difference du nombre de pulse (L-R)
+  return (get_distance(count)/WHEELS_SPACING)*180/PI;
+}
 void increment_left_count() {
   if (digitalRead(ENCODER_PIN_A_L) != digitalRead(ENCODER_PIN_B_L))left_count--; // permet de connaitre le sens de rotation du moteur gauche
   else left_count++;

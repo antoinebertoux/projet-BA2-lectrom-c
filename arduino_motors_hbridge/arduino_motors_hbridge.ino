@@ -33,15 +33,15 @@ long last_right_count = 0;
 #define LINE_PIN_R A2
 
 //PID
-#define KP_L 0
+#define KP_L 0.000002
 #define KI_L 0
 #define KD_L 0
-#define KP_R 0
+#define KP_R 0.000002
 #define KI_R 0
 #define KD_R 0
 double true_speed_left, speed_left, true_speed_right, speed_right, delta_coef_right, delta_coef_left;
-double coef_left = 1;
-double coef_right = 1;
+double coef_left = 0.96;
+double coef_right = 1.06;
 AutoPID myPID_L(&true_speed_left, &speed_left, &delta_coef_left, -255, 255, KP_L, KI_L, KD_L);
 AutoPID myPID_R(&true_speed_right, &speed_right, &delta_coef_right, -255, 255, KP_R, KI_R, KD_R);
 unsigned long last_measure_update;
@@ -56,7 +56,6 @@ const int TURNING_SPEED = 150;
 const int TURN_AFTER_COUNT_1 = 6000*2;
 const int TURN_AFTER_COUNT_2 = 2200*2;
 const int START_TURN_COUNT_DELAY = 80;
-const int LINE_SENSOR_TOLERANCE = 200;
 const int K = 5;
 unsigned long current_time = millis();
 int sensor_left,sensor_middle,sensor_right, breakbeam;
@@ -105,9 +104,9 @@ void setup(){
 void loop(){
   //SENSORS VALUES//
   breakbeam = digitalRead(BREAKBEAM_PIN);
-  sensor_left = analogRead(LINE_PIN_L) > LINE_SENSOR_TOLERANCE;
-  sensor_middle = analogRead(LINE_PIN_M) > LINE_SENSOR_TOLERANCE;
-  sensor_right = analogRead(LINE_PIN_R) > LINE_SENSOR_TOLERANCE;
+  sensor_left = analogRead(LINE_PIN_L);
+  sensor_middle = analogRead(LINE_PIN_M);
+  sensor_right = analogRead(LINE_PIN_R);
   current_time = millis();
   
   //MAIN CODE//
@@ -118,7 +117,7 @@ void loop(){
   long count_since_last_turn = right_count+left_count-last_turn_count;
   if(turning == "left" || turning == "right"){
     //turning
-    long angle_turned = get_angle(start_turning_count - (left_count - right_count));
+    long angle_turned = get_angle((left_count - right_count) - start_turning_count);
     Serial.println(angle_turned);
     if(0 <= count_since_last_turn <= START_TURN_COUNT_DELAY){}
     else if (angle_turned<=90 && count_since_last_turn > START_TURN_COUNT_DELAY){
@@ -152,20 +151,24 @@ void loop(){
       }
     else{
       //keep following line
-      if(sensor_left == sensor_right){}
-      else if(sensor_left){
+      double error = (sensor_left + sensor_middle*10 + sensor_right*20)/double( sensor_left + sensor_middle + sensor_right) - 10;
+      if(abs(error)<4.5){
+        //Serial.println("go straight");
+        speed_left = 200;
+        speed_right = 200;
+      }
+      else if(error<0){
+        //Serial.println("go left");
         speed_left = 150;
         speed_right = 200;
       }
-      else if(sensor_right){
+      else if(error>0){
+        //Serial.println("go right");
         speed_left = 200;
         speed_right = 150;
       }
     }
   }
-  //double error = (sensor_left + sensor_middle*10 + sensor_right*20)/double( sensor_left + sensor_middle + sensor_right) - 10;
-  //Serial.println(error);
-
   
   if (!breakbeam && last_breakbeam) {//tube enter
     tube_enter_count = left_count+right_count;
@@ -182,6 +185,8 @@ void loop(){
     last_measure_update = current_time;
     myPID_L.run();
     myPID_R.run();
+    if(abs(true_speed_left)<100)delta_coef_left=0;//pour garder le meme coef quand l interupteur est eteint
+    if(abs(true_speed_right)<100)delta_coef_right=0;
     
     //DEBUG//
     //Serial.print(true_speed_left);
@@ -192,10 +197,10 @@ void loop(){
     //Serial.print(String(sensor_middle)+" ");
     //Serial.println(String(sensor_right)+" ");
     
-    Serial.print(String(coef_left)+" ");
-    Serial.print(String(coef_right)+" ");
-    Serial.print(String(true_speed_left)+" ");
-    Serial.println(String(true_speed_right)+" ");
+    //Serial.print(String(coef_left)+" ");
+    //Serial.print(String(coef_right)+" ");
+    //Serial.print(String(true_speed_left)+" ");
+    //Serial.println(String(true_speed_right)+" ");
   }
   update_motors_tension();
 }

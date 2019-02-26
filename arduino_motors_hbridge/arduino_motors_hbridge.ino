@@ -40,8 +40,8 @@ long last_right_count = 0;
 #define KI_R 0
 #define KD_R 0
 double true_speed_left, speed_left, true_speed_right, speed_right, delta_coef_right, delta_coef_left;
-double coef_left = 0.96;
-double coef_right = 1.06;
+double coef_left = 1.11;
+double coef_right = 1.21;
 AutoPID myPID_L(&true_speed_left, &speed_left, &delta_coef_left, -255, 255, KP_L, KI_L, KD_L);
 AutoPID myPID_R(&true_speed_right, &speed_right, &delta_coef_right, -255, 255, KP_R, KI_R, KD_R);
 unsigned long last_measure_update;
@@ -50,18 +50,18 @@ unsigned long last_measure_update;
 const int DELTA_T=100; // en ms
 const int WHEEL_RADIUS= 60; //en mm
 const int WHEELS_SPACING = 304;
-const int NORMAL_SPEED  = 250; //vitesses en mm/s
+const int NORMAL_SPEED  = 200; //vitesses en mm/s
 const int SLOW_SPEED  = 150;
 const int TURNING_SPEED = 150;
-const int TURN_AFTER_COUNT_1 = 6000*2;
-const int TURN_AFTER_COUNT_2 = 2200*2;
+const int TURN_AFTER_COUNT_1 = 12000;
+const int TURN_AFTER_COUNT_2 = 4800;
 const int START_TURN_COUNT_DELAY = 80;
 const int K = 5;
 unsigned long current_time = millis();
 int sensor_left,sensor_middle,sensor_right, breakbeam;
 int last_breakbeam = 1;
 int tube_enter_count = 0;
-String turning = "";
+String state = "following_line";
 int number_of_turns = 0;
 long last_turn_count = 0;
 long start_turning_count = 0;
@@ -111,17 +111,20 @@ void loop(){
   
   //MAIN CODE//
   
-  speed_left = 200;
-  speed_right = 200;
+  speed_left = NORMAL_SPEED;
+  speed_right = NORMAL_SPEED;
   
   long count_since_last_turn = right_count+left_count-last_turn_count;
-  if(turning == "left" || turning == "right"){
+  //Serial.println(count_since_last_turn);
+  Serial.println(get_distance(right_count+left_count));
+
+  if(state == "turning_left" || state == "turning_right"){
     //turning
     long angle_turned = get_angle((left_count - right_count) - start_turning_count);
     Serial.println(angle_turned);
-    if(0 <= count_since_last_turn <= START_TURN_COUNT_DELAY){}
-    else if (angle_turned<=90 && count_since_last_turn > START_TURN_COUNT_DELAY){
-      if (turning == "left"){
+    if(0 <= count_since_last_turn <= START_TURN_COUNT_DELAY && false){}
+    else if (abs(angle_turned)<=84){// && count_since_last_turn > START_TURN_COUNT_DELAY
+      if (state == "turning_left"){
         speed_left = -TURNING_SPEED;
         speed_right = TURNING_SPEED;
       }
@@ -132,41 +135,48 @@ void loop(){
     }
     else{
       //stop turning
-      turning = "";
+      state = "following_line";
       last_turn_count = right_count+left_count;
       number_of_turns+=1;
     }
   }
-  else{
+  
+  else if (state == "following_line"){
     //following line
+    //Serial.println(number_of_turns);
+    //Serial.print(String(count_since_last_turn>TURN_AFTER_COUNT_1)+" ");
+    //Serial.print(String(number_of_turns % 2==0)+" ");
+    //Serial.print(String((number_of_turns/2)%2 == 0)+" ");
+    //Serial.println(String(sensor_left>700)+" ");
     if (((count_since_last_turn>TURN_AFTER_COUNT_1 && number_of_turns % 2==0) || (count_since_last_turn>TURN_AFTER_COUNT_2 && number_of_turns % 2==1))
     && number_of_turns < 10
-    && (((number_of_turns/2)%2 == 1 and sensor_right) || (number_of_turns/2)%2 == 0 and sensor_left)){
+    && (((number_of_turns/2)%2 == 1 && sensor_right>700) || (number_of_turns/2)%2 == 0 && sensor_left>700)){
       //start turning
       Serial.println("Starting turn " + String(number_of_turns+1));
       last_turn_count = right_count+left_count;
       start_turning_count = left_count-right_count;
-      if ((number_of_turns/2)%2 == 1) turning = "right";
-      else turning = "left";
+      if ((number_of_turns/2)%2 == 1) state == "turning_right";
+      else state == "turning_left";
       }
     else{
       //keep following line
       double error = (sensor_left + sensor_middle*10 + sensor_right*20)/double( sensor_left + sensor_middle + sensor_right) - 10;
-      if(abs(error)<4.5){
-        //Serial.println("go straight");
-        speed_left = 200;
-        speed_right = 200;
-      }
-      else if(error<0){
+      //Serial.println(error);
+      if(error<0){
         //Serial.println("go left");
-        speed_left = 150;
-        speed_right = 200;
+        speed_left = NORMAL_SPEED - K*abs(error);
+        speed_right = NORMAL_SPEED;
       }
       else if(error>0){
         //Serial.println("go right");
-        speed_left = 200;
-        speed_right = 150;
+        speed_left = NORMAL_SPEED;
+        speed_right = NORMAL_SPEED- K*abs(error);
       }
+    }
+    
+    else if (state == "going_straight"){
+      speed_left = NORMAL_SPEED;
+      speed_right = NORMAL_SPEED;
     }
   }
   

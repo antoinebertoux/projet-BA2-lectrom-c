@@ -1,10 +1,12 @@
 /* http://bildr.org/2012/04/tb6612fng-arduino/
  *  http://andrewjkramer.net/motor-encoders-arduino/
  *  http://ryandowning.net/AutoPID/
- *  
+ *  https://www.arduino.cc/en/Reference/Servo
+ *  https://github.com/ivanseidel/LinkedList
 */
 
 #include <AutoPID.h>
+#include <Servo.h>
 
 //motors
 #define PWML 9
@@ -25,12 +27,17 @@ long last_left_count = 0;
 long last_right_count = 0;
 
 //breakbeam
-#define BREAKBEAM_PIN 6
+#define BREAKBEAM_PIN A3
 
 //line sensors
 #define LINE_PIN_L A0
 #define LINE_PIN_M A1
 #define LINE_PIN_R A2
+
+//servo
+#define SERVO_PIN 6
+int servo_angle = 0;
+Servo servo; 
 
 //PID
 #define KP_L 0.000002
@@ -40,33 +47,47 @@ long last_right_count = 0;
 #define KI_R 0
 #define KD_R 0
 double true_speed_left, speed_left, true_speed_right, speed_right, delta_coef_right, delta_coef_left;
-double coef_left = 1.11;
-double coef_right = 1.21;
+double coef_left = 1.15;
+double coef_right = 0.96;
 AutoPID myPID_L(&true_speed_left, &speed_left, &delta_coef_left, -255, 255, KP_L, KI_L, KD_L);
 AutoPID myPID_R(&true_speed_right, &speed_right, &delta_coef_right, -255, 255, KP_R, KI_R, KD_R);
 unsigned long last_measure_update;
 
 //main code
+#define FOLLOWING_LINE 0
+#define TURNING_LEFT 1
+#define TURNING_RIGHT 2
+#define GOING_STRAIGHT 3
+#define ROTATE_SERVO 4
 const int DELTA_T=100; // en ms
-const int WHEEL_RADIUS= 60; //en mm
+const int WHEEL_DIAMETER= 70; //en mm
 const int WHEELS_SPACING = 304;
 const int NORMAL_SPEED  = 200; //vitesses en mm/s
 const int SLOW_SPEED  = 150;
 const int TURNING_SPEED = 150;
-const int TURN_AFTER_COUNT_1 = 12000;
-const int TURN_AFTER_COUNT_2 = 4800;
-const int START_TURN_COUNT_DELAY = 80;
+const int TURN_AFTER_DISTANCE_1 = 12000;
+const int TURN_AFTER_DISTANCE_2 = 4800;
 const int K = 5;
 unsigned long current_time = millis();
+unsigned long last_servo_update = millis();
 int sensor_left,sensor_middle,sensor_right, breakbeam;
 int last_breakbeam = 1;
-int tube_enter_count = 0;
-String state = "following_line";
+long tube_enter_count = 0;
 int number_of_turns = 0;
 long last_turn_count = 0;
 long start_turning_count = 0;
+int state = FOLLOWING_LINE;
+long target_val = 0;
+int action_list[20][2];
+int action_number = 0;
+
+int TEST_MANEUVER[][2] = {{GOING_STRAIGHT, 30},{TURNING_LEFT, 90},{GOING_STRAIGHT, 30},{TURNING_LEFT, 90}};
+int ANGLE_90_LEFT[][2] {{TURNING_LEFT, 90}};
+int ANGLE_90_RIGHT[][2] {{TURNING_RIGHT, 90}};
 
 void setup(){
+  set_maneuver(TEST_MANEUVER, sizeof(TEST_MANEUVER));
+  
   //serial
   Serial.begin(9600);
 
@@ -83,12 +104,15 @@ void setup(){
   pinMode(ENCODER_PIN_B_L,INPUT);
   pinMode(ENCODER_PIN_A_R,INPUT);
   pinMode(ENCODER_PIN_B_R,INPUT);
-  attachInterrupt(digitalPinToInterrupt(ENCODER_PIN_A_L),increment_left_count,FALLING);
-  attachInterrupt(digitalPinToInterrupt(ENCODER_PIN_A_R),increment_right_count,FALLING);
+  attachInterrupt(digitalPinToInterrupt(ENCODER_PIN_A_L),increment_left_count,CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ENCODER_PIN_A_R),increment_right_count,CHANGE);
 
+  //servo
+  servo.attach(SERVO_PIN);
+  servo.write(0);
+  
   //Breakbeam
-  pinMode(BREAKBEAM_PIN, INPUT);
-  digitalWrite(BREAKBEAM_PIN, HIGH);
+  pinMode(BREAKBEAM_PIN, INPUT_PULLUP);
   
   //line sensors
   pinMode(LINE_PIN_L, INPUT);
@@ -100,7 +124,6 @@ void setup(){
   myPID_R.setTimeStep(DELTA_T);
 }
 
-
 void loop(){
   //SENSORS VALUES//
   breakbeam = digitalRead(BREAKBEAM_PIN);
@@ -110,21 +133,49 @@ void loop(){
   current_time = millis();
   
   //MAIN CODE//
+
+  state = action_list[action_number][0];
+  target_val = action_list[action_number][1];
   
   speed_left = NORMAL_SPEED;
   speed_right = NORMAL_SPEED;
   
-  long count_since_last_turn = right_count+left_count-last_turn_count;
-  //Serial.println(count_since_last_turn);
-  Serial.println(get_distance(right_count+left_count));
+  //Serial.println(get_distance((right_count+left_count)/2));
+  
+  if(state == FOLLOWING_LINE){
+    long distance_since_last_turn = get_distance(right_count+left_count-last_turn_count)/2;
+    
+    if (((distance_since_last_turn>TURN_AFTER_DISTANCE_1 && number_of_turns % 2==0) || (distance_since_last_turn>TURN_AFTER_DISTANCE_2 && number_of_turns % 2==1))
+    && number_of_turns < 10
+    && (((number_of_turns/2)%2 == 1 && sensor_right>700) || (number_of_turns/2)%2 == 0 && sensor_left>700)
+    && false){/////////////////////////////////////////////!!
+      //start turning
+      Serial.println("Starting turn " + String(number_of_turns+1));
+      if ((number_of_turns/2)%2 == 1) set_maneuver(ANGLE_90_RIGHT, sizeof(ANGLE_90_RIGHT));
+      else set_maneuver(ANGLE_90_LEFT, sizeof(ANGLE_90_LEFT));
+      }
+      
+    else{
+      //keep following line
+      double error = (sensor_left + sensor_middle*10 + sensor_right*20)/double(sensor_left + sensor_middle + sensor_right) - 10;
+      //Serial.println(error);
+      if(error<0){
+        speed_left = NORMAL_SPEED-K*abs(error);
+        speed_right = NORMAL_SPEED;
+      }
+      else if(error>0){
+        speed_left = NORMAL_SPEED;
+        speed_right = NORMAL_SPEED-K*abs(error);
+      }
+    }
+  }
 
-  if(state == "turning_left" || state == "turning_right"){
+  else if(state == TURNING_LEFT || state == TURNING_RIGHT){
     //turning
     long angle_turned = get_angle((left_count - right_count) - start_turning_count);
-    Serial.println(angle_turned);
-    if(0 <= count_since_last_turn <= START_TURN_COUNT_DELAY && false){}
-    else if (abs(angle_turned)<=84){// && count_since_last_turn > START_TURN_COUNT_DELAY
-      if (state == "turning_left"){
+    //Serial.println(angle_turned);
+    if (abs(angle_turned)<=target_val){
+      if (state == TURNING_LEFT){
         speed_left = -TURNING_SPEED;
         speed_right = TURNING_SPEED;
       }
@@ -135,50 +186,32 @@ void loop(){
     }
     else{
       //stop turning
-      state = "following_line";
-      last_turn_count = right_count+left_count;
+      next_action();
       number_of_turns+=1;
     }
   }
   
-  else if (state == "following_line"){
-    //following line
-    //Serial.println(number_of_turns);
-    //Serial.print(String(count_since_last_turn>TURN_AFTER_COUNT_1)+" ");
-    //Serial.print(String(number_of_turns % 2==0)+" ");
-    //Serial.print(String((number_of_turns/2)%2 == 0)+" ");
-    //Serial.println(String(sensor_left>700)+" ");
-    if (((count_since_last_turn>TURN_AFTER_COUNT_1 && number_of_turns % 2==0) || (count_since_last_turn>TURN_AFTER_COUNT_2 && number_of_turns % 2==1))
-    && number_of_turns < 10
-    && (((number_of_turns/2)%2 == 1 && sensor_right>700) || (number_of_turns/2)%2 == 0 && sensor_left>700)){
-      //start turning
-      Serial.println("Starting turn " + String(number_of_turns+1));
-      last_turn_count = right_count+left_count;
-      start_turning_count = left_count-right_count;
-      if ((number_of_turns/2)%2 == 1) state == "turning_right";
-      else state == "turning_left";
-      }
-    else{
-      //keep following line
-      double error = (sensor_left + sensor_middle*10 + sensor_right*20)/double( sensor_left + sensor_middle + sensor_right) - 10;
-      //Serial.println(error);
-      if(error<0){
-        //Serial.println("go left");
-        speed_left = NORMAL_SPEED - K*abs(error);
-        speed_right = NORMAL_SPEED;
-      }
-      else if(error>0){
-        //Serial.println("go right");
-        speed_left = NORMAL_SPEED;
-        speed_right = NORMAL_SPEED- K*abs(error);
-      }
-    }
-    
-    else if (state == "going_straight"){
+  else if(state == GOING_STRAIGHT){
+    if(get_distance(left_count+right_count-last_turn_count)/2 < target_val){
       speed_left = NORMAL_SPEED;
       speed_right = NORMAL_SPEED;
     }
+
+    else{
+      next_action();
+    }
+    
   }
+
+  else if(state == ROTATE_SERVO){
+    if(current_time - last_servo_update > 20){
+      if(servo_angle<target_val)servo_angle++;
+      else if (servo_angle>target_val)servo_angle--;
+      else next_action();
+      last_servo_update = current_time;
+    }
+  }
+
   
   if (!breakbeam && last_breakbeam) {//tube enter
     tube_enter_count = left_count+right_count;
@@ -213,6 +246,29 @@ void loop(){
     //Serial.println(String(true_speed_right)+" ");
   }
   update_motors_tension();
+  servo.write(servo_angle);
+}
+
+void next_action(){
+  action_number++;
+  last_turn_count = left_count+right_count;
+  start_turning_count = left_count-right_count;
+}
+
+
+void set_maneuver(int maneuver[][2], int n){
+  for(int i = 0; i<20;i++){
+    if(i<n){
+      action_list[i][0] = maneuver[i][0];
+      action_list[i][1] = maneuver[i][1];
+    }
+    else{
+      action_list[i][0] = 0;
+      action_list[i][1] = 0;
+    }
+  }
+  next_action();
+  action_number = 0;
 }
 
 
@@ -224,7 +280,7 @@ void update_measured_speeds(unsigned long delta_t){ // permet de connaitre la vi
 }
 
 double get_distance(long count){ //renvoie la distance parcourue en fonction du nombre de pulses des encodeurs
-  return double(WHEEL_RADIUS*2*PI*count)/2940; //2940=7*2*210=pulses par rotation
+  return double(WHEEL_DIAMETER*PI*count)/2940; //2940=7*2*210=pulses par rotation
 }
 double get_angle(long count){//renvoie l'angle tourné en fonction de la difference du nombre de pulse (L-R)
   return (get_distance(count)/WHEELS_SPACING)*180/PI;
@@ -246,7 +302,7 @@ void update_motors_tension(){
   update_tension(speed_right*coef_right, 1);
 }
 
-double update_tension(int tension, int motor){//1 for left, 0 for right
+void update_tension(int tension, int motor){//1 for left, 0 for right
   if (tension>255)tension = 255;
   if (tension<-255)tension = -255;
   boolean inPin1 = LOW;
@@ -264,5 +320,4 @@ double update_tension(int tension, int motor){//1 for left, 0 for right
   digitalWrite(RIN2, inPin2);
   analogWrite(PWMR, abs(tension));
   }
-  return tension;
 }

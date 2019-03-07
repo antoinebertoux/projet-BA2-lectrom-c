@@ -13,7 +13,7 @@ simulator = Simulator(start_pos_begining)
 
 WHEELS_SPACING = 152
 WHEEL_RADIUS = 30
-NORMAL_SPEED = 0.75
+NORMAL_SPEED = 0.65
 TURNING_SPEED = 0.8
 DIAMETER_TOLERANCES = [13, 18, 22, 27]
 TURN_AFTER_DISTANCE_1 = 390
@@ -34,7 +34,7 @@ last_breakbeam_value = False
 last_action_distance = 0
 start_turning_angle = 0
 action_number = 0
-last_on_mark = False
+last_mark_distance = -1000
 action_list = []
 TURN_LEFT = [["turning_left", 90]]
 TURN_RIGHT = [["turning_right", 90]]
@@ -90,41 +90,44 @@ while True:
         #stop slowing down
         diameter = total_distance - tube_enter_distance
     last_breakbeam_value = breakbeam_value
+
     if action_number<len(action_list):
         state = action_list[action_number][0]
         target_val = action_list[action_number][1]
     else:
         state = "following_line"
         target_val = 0
+
     if state == "following_line":
         #following line
         if total_distance-last_action_distance <= target_val or target_val == 0:
-            if sensor_values[0] and sensor_values[2]:
-                if not last_on_mark:
-                    if mark_number !=0:
-                        if mark_number >= 11:
-                            set_maneuver(RETURN)
-                        elif (mark_number-1)//2%2==0:
-                            set_maneuver(TURN_LEFT)
-                        elif (mark_number-1)//2%2==1:
-                            set_maneuver(TURN_RIGHT)
-                    mark_number+=1
-                    print(mark_number)
-                    if diameter == 0:
-                        print("no tube")
-                    elif DIAMETER_TOLERANCES[0] < diameter <= DIAMETER_TOLERANCES[1]:
-                        add_maneuver(STOCK_TUBE)
-                        print("small")
-                    elif DIAMETER_TOLERANCES[1] < diameter <= DIAMETER_TOLERANCES[2]:
-                        add_maneuver(MIDDLE_DIAM)
-                        print("medium")
-                    elif DIAMETER_TOLERANCES[2] < diameter <= DIAMETER_TOLERANCES[3]:
-                        add_maneuver(STOCK_TUBE)
-                        print("big")
-                    diameter = 0
-                last_on_mark = True
+            if total_distance-last_mark_distance < 30:
+                speed_left = NORMAL_SPEED
+                speed_right = NORMAL_SPEED
+            elif sensor_values[0] and sensor_values[2]:
+                if mark_number !=0:
+                    if mark_number >= 11:
+                        set_maneuver(RETURN)
+                    elif (mark_number-1)//2%2==0:
+                        set_maneuver(TURN_LEFT)
+                    elif (mark_number-1)//2%2==1:
+                        set_maneuver(TURN_RIGHT)
+                mark_number+=1
+                print(mark_number)
+                if diameter == 0:
+                    print("no tube")
+                elif DIAMETER_TOLERANCES[0] < diameter <= DIAMETER_TOLERANCES[1]:
+                    add_maneuver(STOCK_TUBE)
+                    print("small")
+                elif DIAMETER_TOLERANCES[1] < diameter <= DIAMETER_TOLERANCES[2]:
+                    add_maneuver(MIDDLE_DIAM)
+                    print("medium")
+                elif DIAMETER_TOLERANCES[2] < diameter <= DIAMETER_TOLERANCES[3]:
+                    add_maneuver(STOCK_TUBE)
+                    print("big")
+                diameter = 0
+                last_mark_distance=total_distance
             else:
-                last_on_mark = False
                 #keep following line
                 if mark_number%2==0 and mark_number!=0:
                     speed_left = NORMAL_SPEED

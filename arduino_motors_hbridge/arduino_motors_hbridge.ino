@@ -59,6 +59,9 @@ unsigned long last_measure_update;
 #define GOING_STRAIGHT 3
 #define ROTATE_SERVO 4
 #define STOP 5
+#define SMALL 1
+#define MEDIUM 2
+#define BIG 3
 const int DELTA_T=100; // en ms
 const int WHEEL_DIAMETER= 70; //en mm
 const int WHEELS_SPACING = 310;
@@ -83,16 +86,17 @@ int state = FOLLOWING_LINE;
 long target_val = 0;
 int action_list[20][2];
 int action_number = 0;
-bool last_on_mark = false;
-double diameter = 0;
-int tube_number = 0;
+int slot_number = 0;
+int slot_list[4] = {-1,-1,-1,-1};//small,small,big,big
+int tube_size = 0;
 
+int EMPTY[][2] = {};
 int RETURN[][2] = {{STOP,10000}};
 int LEFT_TURN[][2] = {{TURNING_LEFT, 90}};
 int RIGHT_TURN[][2] = {{TURNING_RIGHT, 90}};
 int SERVO_ANGLES[5] = {0,35,69,105,137};
 int SERVO_ANGLES_180[5] = {89,124,155,16,50};//{87,122,153,18,52}
-int FORWARD[][2]={{GOING_STRAIGHT, 18}};
+
 void setup(){
 //  for(int i = 0;i<5;i++){
 //  TEST_SERVO[i*4][0]=ROTATE_SERVO;
@@ -157,67 +161,58 @@ void loop(){
   
   speed_left = NORMAL_SPEED;
   speed_right = NORMAL_SPEED;
-  //174
-  //Serial.println(get_distance((right_count+left_count)/2));
+  
   if(state == FOLLOWING_LINE){
     long distance_since_last_turn = get_distance(right_count+left_count-last_turn_count)/2;
-    if(get_distance(right_count+left_count-last_mark_count)/2 < 60){
-      //Serial.println("test");
-    }
-    else{
-    if(get_distance(left_count+right_count-last_turn_count)/2 < target_val || target_val == 0){
-      if(sensor_left && sensor_right ){
-          if(!last_on_mark){
-            if(mark_number !=0){
-              if(mark_number >= 11){
-                Serial.println("retour");
-                set_maneuver(RETURN, sizeof(RETURN));
-              }
-              else if(((mark_number-1)/2)%2 == 0){
-                set_maneuver(LEFT_TURN, 1);
-                Serial.println("turning_left");
-              }
-              else if(((mark_number-1)/2)%2 == 1){
-                set_maneuver(RIGHT_TURN, 1);
-                Serial.println("turning_right");
-              }
-             }
-            mark_number++;
-            last_mark_count = left_count+right_count;
-            Serial.println(mark_number);
-            
-            if (diameter == 0)Serial.println("No tube");
-            else {
-              Serial.println("Diameter: " + String(diameter));
-              if(diameter<34){
-                tube_number++;
-                int STOCK_TUBE[][2]={{ROTATE_SERVO, SERVO_ANGLES[tube_number]}};
-                add_maneuver(STOCK_TUBE, 1);
-                Serial.println("small");
-              }
-              else if(diameter<45){
-                int SKIP_TUBE[][2]={{FOLLOWING_LINE, 85},{ROTATE_SERVO, SERVO_ANGLES_180[tube_number]},{FOLLOWING_LINE, 65},{ROTATE_SERVO, SERVO_ANGLES[tube_number]}};
-                add_maneuver(SKIP_TUBE, 4);
-                Serial.println("medium");
-              }
-              else{
-                tube_number++;
-                int STOCK_TUBE[][2]={{ROTATE_SERVO, SERVO_ANGLES[tube_number]}};
-                add_maneuver(STOCK_TUBE, 1);
-                Serial.println("big");
-              }
+    if(abs(get_distance(left_count+right_count-last_turn_count)/2) < abs(target_val) || target_val == 0){
+      
+      if(sensor_left && sensor_right){
+        if(get_distance(left_count+right_count-last_mark_count)/2 > 30){
+          if(mark_number !=0){
+            if(mark_number==11){
+              set_maneuver(EMPTY, 0);
+              Serial.println("return");
             }
-            diameter = 0;
+            if(((mark_number-1)/2)%2 == 0){
+              set_maneuver(LEFT_TURN, 1);
+              Serial.println("turning_left");
             }
-        last_on_mark = true;
+            else{
+              set_maneuver(RIGHT_TURN, 1);
+              Serial.println("turning_right");
+            }
+          }
+          last_mark_count = left_count+right_count;
+          Serial.println(mark_number);
+          if(tube_size == SMALL){
+            if(slot_list[0] == -1)slot_list[0] = slot_number;
+            else slot_list[1] = slot_number;
+            slot_number++;
+            int STOCK_TUBE[][2]={{ROTATE_SERVO, SERVO_ANGLES[slot_number]}};
+            add_maneuver(STOCK_TUBE, 1);
+          }
+          else if(tube_size == MEDIUM){
+            int SKIP_TUBE[][2]={{FOLLOWING_LINE, 85},{ROTATE_SERVO, SERVO_ANGLES_180[slot_number]},{FOLLOWING_LINE, 65},{ROTATE_SERVO, SERVO_ANGLES[slot_number]}};
+            add_maneuver(SKIP_TUBE, 4);
+          }
+          else if(tube_size == BIG){
+            if(slot_list[2] == -1)slot_list[2] = slot_number;
+            else slot_list[3] = slot_number;
+          }
+          if (tube_size == SMALL || tube_size == BIG){
+            slot_number++;
+            int STOCK_TUBE[][2]={{ROTATE_SERVO, SERVO_ANGLES[slot_number]}};
+            add_maneuver(STOCK_TUBE, 1);
+          }
+          if(mark_number == 11) add_last_maneuver();
+          mark_number++;
+          tube_size = 0;
         }
+      }
+      
       else{
-        last_on_mark = false;
         //keep following line
-        //double error = (sensor_left + sensor_middle*10 + sensor_right*20)/double(sensor_left + sensor_middle + sensor_right) - 10;
-        //Serial.println(error);
-        if ((mark_number%2==0 and mark_number!=0)){
-          //Serial.println("forward");
+        if (mark_number%2==0 && mark_number!=0){
           //straight from one line to another
           speed_left = NORMAL_SPEED;
           speed_right = NORMAL_SPEED;
@@ -237,11 +232,12 @@ void loop(){
           speed_left = NORMAL_SPEED;
           speed_right = NORMAL_SPEED;
         }
-      }
+        if(target_val<0){
+          speed_left = -speed_left;
+          speed_right = -speed_right;
+        }
     }
-    else{
-      next_action();
-    }}
+    else next_action();
   }
 
   else if(state == TURNING_LEFT || state == TURNING_RIGHT){
@@ -257,28 +253,25 @@ void loop(){
         speed_right = -TURNING_SPEED;
       }
     }
-    else{
-      next_action();
-    }
+    else next_action();
   }
   
   else if(state == GOING_STRAIGHT){
-    if(get_distance(left_count+right_count-last_turn_count)/2 < target_val){
+    if(abs(get_distance(left_count+right_count-last_turn_count)/2) < abs(target_val)){
       speed_left = NORMAL_SPEED;
       speed_right = NORMAL_SPEED;
+      if(target_val < 0){
+        speed_left = -NORMAL_SPEED;
+        speed_right = -NORMAL_SPEED;
+      }
     }
-
-    else{
-      next_action();
-    }
-    
+    else next_action();
   }
 
   else if(state == ROTATE_SERVO){
-    
-  speed_left = 0;
-  speed_right = 0;
-    if(current_time - last_servo_update > 20){
+    speed_left = 0;
+    speed_right = 0;
+    if(current_time - last_servo_update > 20){//1 degré par 20ms
       if(servo_angle<target_val)servo_angle++;
       else if (servo_angle>target_val)servo_angle--;
       else next_action();
@@ -287,20 +280,35 @@ void loop(){
   }
   
   else if(state == STOP){
-    if(current_time-last_action_time < target_val){
+    if(current_time-last_action_time < target_val || target_val == -1){
       speed_left = 0;
       speed_right = 0;
     }
-    else{
-      next_action();
-    }
+    else next_action();
   }
   
   if (!breakbeam && last_breakbeam) {//tube enter
     tube_enter_count = left_count+right_count;
   }
   if (breakbeam && !last_breakbeam) {//tube exit
-    diameter = get_distance(left_count+right_count-tube_enter_count)/2;
+    double diameter = get_distance(left_count+right_count-tube_enter_count)/2;
+    Serial.println("Diameter: " + String(diameter));
+    if(diameter<34){
+      Serial.println("Small");
+      tube_size = SMALL;
+    }
+    else if(diameter<45){
+      Serial.println("Medium");
+      tube_size = MEDIUM;
+      if(mark_number == 11){
+        set_maneuver(EMPTY, 0);
+        add_last_maneuver();
+      }
+    }
+    else{
+      Serial.println("Big");
+      tube_size = BIG;
+    }
   }
   last_breakbeam=breakbeam;
   //MOTORS PID//
@@ -331,6 +339,17 @@ void loop(){
   }
   update_motors_tension();
   servo.write(servo_angle);
+}
+
+void add_last_maneuver(){
+  int l = 200;
+  if(tube_size == MEDIUM) l = 180;
+  int MANEUVER[][2] = {
+    {GOING_STRAIGHT, -l}, {TURNING_LEFT, 90}, {GOING_STRAIGHT, 2000},
+    {TURNING_RIGHT, 90}, {GOING_STRAIGHT, 200},{ROTATE_SERVO, SERVO_ANGLES[size_list[0]]}, {GOING_STRAIGHT, -65}, SERVO_ANGLES[size_list[1]]},
+    {GOING_STRAIGHT, -335},{ROTATE_SERVO, SERVO_ANGLES_180[size_list[2]]},{GOING_STRAIGHT, 65},{ROTATE_SERVO, SERVO_ANGLES_180[size_list[3]]},{GOING_STRAIGHT, 135},{TURNING_RIGHT, 90},{STOP,-1}
+  };
+  add_maneuver(MANEUVER, 15);
 }
 
 void next_action(){

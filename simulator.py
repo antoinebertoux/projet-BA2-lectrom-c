@@ -17,7 +17,7 @@ red = (255, 0, 0)
 SENSORS_OFFSET = 0
 CENTER_OF_ROTATION_OFFSET = 0
 SENSORS_SPACING = 10
-SENSORS_POS = [(10,-6),(0,0),(10,6)]
+SENSORS_POS = [(2,-6),(0,0),(2,6)]#[(8,-6),(0,0),(8,6)]
 PROXIMITY_SENSOR_OFFSET = 60
 BREAKBEAM_SPACING = 38
 BREAKBEAM_OFFSET = 58
@@ -207,7 +207,9 @@ class Simulator:
         for i in range(6):
             pygame.draw.line(background, black, (x,y-4), (x,y+420), 9)
             tube_point_list.append((x,y+100))
+            pygame.draw.line(background, black, (x-15,y+100), (x+15,y+100),9)
             tube_point_list.append((x,y+316))
+            pygame.draw.line(background, black, (x-15,y+316), (x+15,y+316),9)
             if i%2==1 and i<5:
                 pygame.draw.line(background, black, (x,y), (x+167,y),9)
             elif i<5:
@@ -222,9 +224,9 @@ class Simulator:
                      sys.exit()
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_LEFT:
-                        self.angle_change = 2
+                        self.angle_change = 1
                     elif event.key == pygame.K_RIGHT:
-                        self.angle_change = -2
+                        self.angle_change = -1
                     elif event.key == pygame.K_UP:
                         self.speed = 2
                     elif event.key == pygame.K_DOWN:

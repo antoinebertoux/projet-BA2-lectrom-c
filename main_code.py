@@ -1,6 +1,7 @@
 from simulator import Simulator
 import time
 import math
+import copy
 
 start_pos_begining = 328,150,270
 start_pos_end = 1164,272, 90
@@ -12,37 +13,54 @@ simulator = Simulator(start_pos_begining)
 
 WHEELS_SPACING = 152
 WHEEL_RADIUS = 30
-SLOW_SPEED = 0.4
-NORMAL_SPEED = 1
+NORMAL_SPEED = 0.75
 TURNING_SPEED = 0.8
-START_TURN_DELAY = 5
 DIAMETER_TOLERANCES = [13, 18, 22, 27]
 TURN_AFTER_DISTANCE_1 = 390
 TURN_AFTER_DISTANCE_2 = 140
 
 error = 0
-turning = ""
-number_of_turns = 0
+state = "following_line"
+mark_number = 0
 
-retour = False
-retour0 = False
-tretour = 0
-
-distance_since_last_turn = 0
-slowing_down = False
-slowing_down_start = 0
-slowing_down_distance = 0
 angle_turned = 90
-distance_step = 0
-start_turn_delay_count = 0
-angle_step = 0
+total_distance = 0
 K =0.05
 last_time = time.time()
 current_time = time.time()
 breakbeam_value = False
 diameter = 0
-last_diameter = 0
+last_breakbeam_value = False
+last_action_distance = 0
+start_turning_angle = 0
+action_number = 0
+last_on_mark = False
+action_list = []
+TURN_LEFT = [["turning_left", 90]]
+TURN_RIGHT = [["turning_right", 90]]
+STOCK_TUBE = [["stop",1.3]]
+MIDDLE_DIAM = [["following_line", 38], ["stop",2],["following_line", 20],["stop",1.3]]
 
+RETURN = [["turning_left", 180],["following_line", 100],["turning_right", 90], ["going_straight", 1000], ["stop", 1000]]
+last_action_time = 0
+tube_enter_distance = 0
+def next_action():
+    global action_number, start_turning_angle, last_action_distance, last_action_time
+    action_number +=1
+    start_turning_angle = angle_turned
+    last_action_distance = total_distance
+    last_action_time = time.time()
+def set_maneuver(list):
+    global action_list, action_number
+    action_list = copy.deepcopy(list)
+    next_action()
+    action_number = 0
+def add_maneuver(list):
+    global action_list
+    if len(action_list)==0:
+        set_maneuver(list)
+    else:
+        action_list+=list
 ######
 #LOOP#
 ######
@@ -53,6 +71,9 @@ while True:
     dt = current_time-last_time
     last_time = time.time()
 
+    speed_left = NORMAL_SPEED
+    speed_right = NORMAL_SPEED
+
     sensor_values = simulator.get_line_sensors_values()
     total_sum = sensor_values[0] + sensor_values[1] + sensor_values[2]
     if total_sum == 0:
@@ -60,144 +81,106 @@ while True:
     else:
         error = (sensor_values[0] + sensor_values[1]*10 + sensor_values[2]*20)/total_sum - 10
 
-    proximity_sensor_value = simulator.get_proximity_sensor_value()
-    if 0 < proximity_sensor_value < 30 and not slowing_down:
-        #start slowing down
-        slowing_down_distance = 0
-        slowing_down = True
-
-    if slowing_down and slowing_down_distance > 70:
-        #stop slowing down
-        slowing_down = False
-        last_diameter = diameter
-        if DIAMETER_TOLERANCES[0] < diameter <= DIAMETER_TOLERANCES[1]:
-            print("petit")
-        elif DIAMETER_TOLERANCES[1] < diameter <= DIAMETER_TOLERANCES[2]:
-            print("moyen")
-        elif DIAMETER_TOLERANCES[2] < diameter <= DIAMETER_TOLERANCES[3]:
-            print("grand")
-        diameter = 0
-
-    if slowing_down:
-        default_speed = SLOW_SPEED
-        slowing_down_distance += distance_step
-    else:
-        default_speed = NORMAL_SPEED
-
     breakbeam_value = simulator.get_breakbeam_value()
-    if breakbeam_value:
-        diameter += distance_step
 
-    if turning == "left" or turning == "right":
+    if breakbeam_value and not last_breakbeam_value:
+        tube_enter_distance = total_distance
+
+    if not breakbeam_value and last_breakbeam_value:
+        #stop slowing down
+        diameter = total_distance - tube_enter_distance
+    last_breakbeam_value = breakbeam_value
+    if action_number<len(action_list):
+        state = action_list[action_number][0]
+        target_val = action_list[action_number][1]
+    else:
+        state = "following_line"
+        target_val = 0
+    if state == "following_line":
+        #following line
+        if total_distance-last_action_distance <= target_val or target_val == 0:
+            if sensor_values[0] and sensor_values[2]:
+                if not last_on_mark:
+                    if mark_number !=0:
+                        if mark_number >= 11:
+                            set_maneuver(RETURN)
+                        elif (mark_number-1)//2%2==0:
+                            set_maneuver(TURN_LEFT)
+                        elif (mark_number-1)//2%2==1:
+                            set_maneuver(TURN_RIGHT)
+                    mark_number+=1
+                    print(mark_number)
+                    if diameter == 0:
+                        print("no tube")
+                    elif DIAMETER_TOLERANCES[0] < diameter <= DIAMETER_TOLERANCES[1]:
+                        add_maneuver(STOCK_TUBE)
+                        print("small")
+                    elif DIAMETER_TOLERANCES[1] < diameter <= DIAMETER_TOLERANCES[2]:
+                        add_maneuver(MIDDLE_DIAM)
+                        print("medium")
+                    elif DIAMETER_TOLERANCES[2] < diameter <= DIAMETER_TOLERANCES[3]:
+                        add_maneuver(STOCK_TUBE)
+                        print("big")
+                    diameter = 0
+                last_on_mark = True
+            else:
+                last_on_mark = False
+                #keep following line
+                if mark_number%2==0 and mark_number!=0:
+                    speed_left = NORMAL_SPEED
+                    speed_right = NORMAL_SPEED
+                elif sensor_values[0]:
+                    speed_left = NORMAL_SPEED*(0.2-0.3)
+                    speed_right = NORMAL_SPEED*(0.2+0.3)
+                elif sensor_values[2]:
+                    speed_left = NORMAL_SPEED*(0.2+0.3)
+                    speed_right = NORMAL_SPEED*(0.2-0.3)
+                else:
+                    speed_left = NORMAL_SPEED
+                    speed_right = NORMAL_SPEED
+        else:
+            next_action()
+
+    elif state == "turning_left" or state == "turning_right":
         #turning
-        if 0 <= start_turn_delay_count < START_TURN_DELAY:
-            start_turn_delay_count += distance_step
-        elif abs(angle_turned)<=90 and start_turn_delay_count > START_TURN_DELAY:
-            if turning == "left":
+        if abs(start_turning_angle-angle_turned)<target_val-5:
+            if state == "turning_left":
                 speed_left = -TURNING_SPEED
                 speed_right = TURNING_SPEED
             else:
                 speed_left = TURNING_SPEED
                 speed_right = -TURNING_SPEED
         else:
-            #stop turning
-            turning = ""
-            distance_since_last_turn = 0
-            number_of_turns+=1
+            next_action()
+
+    elif state == "going_straight":
+        if total_distance-last_action_distance <= target_val:
             speed_left = NORMAL_SPEED
             speed_right = NORMAL_SPEED
-    else:
-        #following line
-        if error == 0 and total_sum<200:
-            #keep following line
-            speed_left = default_speed
-            speed_right = default_speed
         else:
-            if ((distance_since_last_turn>TURN_AFTER_DISTANCE_1 and number_of_turns % 2==0) or (distance_since_last_turn>TURN_AFTER_DISTANCE_2 and number_of_turns % 2==1)) and  number_of_turns < 10\
-                and (((number_of_turns//2)%2 == 1 and sensor_values[2]) or (number_of_turns//2)%2 == 0 and sensor_values[0]):
-                    #start turning
-                    angle_turned = 0
-                    start_turn_delay_count = 0
-                    speed_left = default_speed
-                    speed_right = default_speed
-                    if (number_of_turns//2)%2 == 1:
-                        turning = "right"
-                    else:
-                        turning = "left"
-            else:
-                #keep following line
-                speed_left = default_speed + error*K
-                speed_right = default_speed - error*K
+            next_action()
 
-    #retour
-    dtretour = 0
-    if not total_sum and not retour0 and not retour : # on est sortie de la route
-        tretour = time.time()
-        t0 = time.time()
-        retour0 = True
-    elif retour0 and total_sum >= 10 :# finalement on est a nouveau sur la route
-        tretour = 0
-        retour0 = False
-    elif retour0 and (last_time-tretour> 0.5) : # on est sortie de la route depuis trop longtemps pour que ce soit une erreur donc on desside de rentre
-        t0 = time.time()
-        retour0 = False
-
-        retour = True
-        step_number = 1
-        angle_turned = 0
-    elif retour : # on a decide de rentre
-        if step_number == 1:
-            if angle_turned < 86:
-                speed_left = -TURNING_SPEED
-                speed_right = TURNING_SPEED
-            else:
-                step_number = 2
-                distance_since_last_turn = 0
-        if step_number == 2:
-            if distance_since_last_turn < 1000:
-                speed_left = NORMAL_SPEED
-                speed_right = NORMAL_SPEED
-            else:
-                step_number = 3
-                angle_turned = 0
-        if step_number == 3:
-            if angle_turned < 86:
-                speed_left = -TURNING_SPEED
-                speed_right = TURNING_SPEED
-            else:
-                step_number = 4
-                start_time = time.time()
-        if step_number == 4:
-            if current_time - start_time < 2:
-                speed_left = 0
-                speed_right = 0
-            else:
-                step_number = 5
-                distance_since_last_turn = 0
-        if step_number == 5:
-            if distance_since_last_turn < 400:
-                speed_left = NORMAL_SPEED
-                speed_right = NORMAL_SPEED
-            else:
-                step_number = 6
-        if step_number == 6:
+    elif state == "stop":
+        if current_time - last_action_time < target_val:
             speed_left = 0
             speed_right = 0
-
+        else:
+            next_action()
+    #retour
     true_speed_right, true_speed_left = simulator.get_true_speeds()
     distance_step = WHEEL_RADIUS*float(true_speed_left+true_speed_right)/2*dt
     angle_step = math.degrees(WHEEL_RADIUS*float(true_speed_left-true_speed_right)/WHEELS_SPACING*dt)
 
-    distance_since_last_turn += distance_step
+    total_distance += distance_step
     angle_turned += angle_step
 
     simulator.set_motor_speeds(speed_left, speed_right)
 
-    text_to_display = 'Error: '+str(error) + ' Angle_turned: ' +str(
+    text_to_display = ' Angle_turned: ' +str(
 
 int(round(angle_turned))) + ' distance: ' + str(
 
-int(round(distance_since_last_turn)))+ ' diameter: ' + str(round(last_diameter,2))
+int(round(total_distance)))+ ' diameter: ' + str(round(diameter,2)) +" state: " +state
 
     simulator.end_loop(text_to_display)
     time.sleep(0.05)

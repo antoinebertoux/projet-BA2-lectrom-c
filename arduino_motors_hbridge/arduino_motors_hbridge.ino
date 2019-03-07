@@ -8,18 +8,18 @@
 #include <Servo.h>
 
 //motors
-#define PWML 9
+#define PWML 5
 #define LIN1 7
 #define LIN2 8
-#define PWMR 6
-#define RIN1 11
+#define PWMR 11
+#define RIN1 10
 #define RIN2 12
 
 //encoder
 #define ENCODER_PIN_A_L 2
 #define ENCODER_PIN_B_L 4
 #define ENCODER_PIN_A_R 3
-#define ENCODER_PIN_B_R 5
+#define ENCODER_PIN_B_R A5
 volatile long left_count = 0;
 volatile long right_count = 0;
 long last_left_count = 0;
@@ -29,12 +29,12 @@ long last_right_count = 0;
 #define BREAKBEAM_PIN A3
 
 //line sensors
-#define LINE_PIN_L A0
-#define LINE_PIN_M A1
-#define LINE_PIN_R A2
+#define LINE_PIN_L A0 //brun
+#define LINE_PIN_M A1 //mauve
+#define LINE_PIN_R A2 //gris
 
 //servo
-#define SERVO_PIN 10
+#define SERVO_PIN 6
 int servo_angle = 0;
 Servo servo; 
 
@@ -68,7 +68,7 @@ const int TURNING_SPEED = 150;
 const int TURN_AFTER_DISTANCE_1 = 820;
 const int TURN_AFTER_DISTANCE_2 = 310;
 const int K = 22;
-const int LINE_SENSOR_TOLERANCE = 700;
+const int LINE_SENSOR_TOLERANCE = 900;
 unsigned long current_time = millis();
 unsigned long last_servo_update = millis();
 unsigned long last_action_time = millis();
@@ -78,18 +78,34 @@ long tube_enter_count = 0;
 int mark_number = 0;
 long last_turn_count = 0;
 long start_turning_count = 0;
+long last_mark_count = 0;
 int state = FOLLOWING_LINE;
 long target_val = 0;
 int action_list[20][2];
 int action_number = 0;
 bool last_on_mark = false;
 double diameter = 0;
+int tube_number = 0;
 
 int RETURN[][2] = {{STOP,10000}};
 int LEFT_TURN[][2] = {{TURNING_LEFT, 90}};
 int RIGHT_TURN[][2] = {{TURNING_RIGHT, 90}};
-
+int SERVO_ANGLES[5] = {0,35,69,105,137};
+int SERVO_ANGLES_180[5] = {89,124,155,16,50};//{87,122,153,18,52}
+int FORWARD[][2]={{GOING_STRAIGHT, 18}};
 void setup(){
+//  for(int i = 0;i<5;i++){
+//  TEST_SERVO[i*4][0]=ROTATE_SERVO;
+//  TEST_SERVO[i*4][1]=SERVO_ANGLES[i];
+//  TEST_SERVO[i*4+1][0]=STOP;
+//  TEST_SERVO[i*4+1][1]=1500;
+//  TEST_SERVO[i*4+2][0]=ROTATE_SERVO;
+//  TEST_SERVO[i*4+2][1]=SERVO_ANGLES_180[i];
+//  TEST_SERVO[i*4+3][0]=STOP;
+//  TEST_SERVO[i*4+3][1]=1500;
+//  }
+//  TEST_SERVO[20][0]=ROTATE_SERVO;
+//  TEST_SERVO[20][1]=0;
   //serial
   Serial.begin(9600);
 
@@ -110,9 +126,9 @@ void setup(){
   attachInterrupt(digitalPinToInterrupt(ENCODER_PIN_A_R),increment_right_count,CHANGE);
 
   //servo
-  //servo.attach(SERVO_PIN);
-  //servo.write(0);
-  
+  servo.attach(SERVO_PIN);
+  servo.write(0);
+  delay(1000);
   //Breakbeam
   pinMode(BREAKBEAM_PIN, INPUT_PULLUP);
   
@@ -143,22 +159,56 @@ void loop(){
   speed_right = NORMAL_SPEED;
   //174
   //Serial.println(get_distance((right_count+left_count)/2));
-  
   if(state == FOLLOWING_LINE){
     long distance_since_last_turn = get_distance(right_count+left_count-last_turn_count)/2;
+    if(get_distance(right_count+left_count-last_mark_count)/2 < 60){
+      //Serial.println("test");
+    }
+    else{
     if(get_distance(left_count+right_count-last_turn_count)/2 < target_val || target_val == 0){
-      if(sensor_left && sensor_right){
-        if(!last_on_mark){
-          if(mark_number >= 11)set_maneuver(RETURN, sizeof(RETURN));
-          else if(((mark_number-1)/2)%2 == 0)set_maneuver(LEFT_TURN, sizeof(LEFT_TURN));
-          else set_maneuver(RIGHT_TURN, sizeof(RIGHT_TURN));
-          mark_number++;
-          Serial.println(mark_number);
-          
-          if (diameter == 0)Serial.println("No tube");
-          else Serial.println("Diameter: " + String(diameter));//add_maneuver(STOCK_TUBE, sizeof(STOCK_TUBE))
-          diameter = 0;
-          }
+      if(sensor_left && sensor_right ){
+          if(!last_on_mark){
+            if(mark_number !=0){
+              if(mark_number >= 11){
+                Serial.println("retour");
+                set_maneuver(RETURN, sizeof(RETURN));
+              }
+              else if(((mark_number-1)/2)%2 == 0){
+                set_maneuver(LEFT_TURN, 1);
+                Serial.println("turning_left");
+              }
+              else if(((mark_number-1)/2)%2 == 1){
+                set_maneuver(RIGHT_TURN, 1);
+                Serial.println("turning_right");
+              }
+             }
+            mark_number++;
+            last_mark_count = left_count+right_count;
+            Serial.println(mark_number);
+            
+            if (diameter == 0)Serial.println("No tube");
+            else {
+              Serial.println("Diameter: " + String(diameter));
+              if(diameter<34){
+                tube_number++;
+                int STOCK_TUBE[][2]={{ROTATE_SERVO, SERVO_ANGLES[tube_number]}};
+                add_maneuver(STOCK_TUBE, 1);
+                Serial.println("small");
+              }
+              else if(diameter<45){
+                int SKIP_TUBE[][2]={{FOLLOWING_LINE, 85},{ROTATE_SERVO, SERVO_ANGLES_180[tube_number]},{FOLLOWING_LINE, 65},{ROTATE_SERVO, SERVO_ANGLES[tube_number]}};
+                add_maneuver(SKIP_TUBE, 4);
+                Serial.println("medium");
+              }
+              else{
+                tube_number++;
+                int STOCK_TUBE[][2]={{ROTATE_SERVO, SERVO_ANGLES[tube_number]}};
+                add_maneuver(STOCK_TUBE, 1);
+                Serial.println("big");
+              }
+            }
+            diameter = 0;
+            }
         last_on_mark = true;
         }
       else{
@@ -166,20 +216,21 @@ void loop(){
         //keep following line
         //double error = (sensor_left + sensor_middle*10 + sensor_right*20)/double(sensor_left + sensor_middle + sensor_right) - 10;
         //Serial.println(error);
-        if (mark_number%2==0 and mark_number!=0){
+        if ((mark_number%2==0 and mark_number!=0)){
+          //Serial.println("forward");
           //straight from one line to another
           speed_left = NORMAL_SPEED;
           speed_right = NORMAL_SPEED;
         }
-        else if (sensor_left){
+        else if (sensor_left && sensor_middle){
           //turn_right
-          speed_left = NORMAL_SPEED*(0.2-0.3);
-          speed_right = NORMAL_SPEED*(0.2+0.3);
+          speed_left = NORMAL_SPEED*(0-0.4);
+          speed_right = NORMAL_SPEED*(0+0.4);
         }
-        else if (sensor_right){
+        else if (sensor_right && sensor_middle){
           //turn_left
-          speed_left = NORMAL_SPEED*(0.2+0.3);
-          speed_right = NORMAL_SPEED*(0.2-0.3);     
+          speed_left = NORMAL_SPEED*(0+0.4);
+          speed_right = NORMAL_SPEED*(0-0.4);     
         }
         else{
           //on line
@@ -190,7 +241,7 @@ void loop(){
     }
     else{
       next_action();
-    }
+    }}
   }
 
   else if(state == TURNING_LEFT || state == TURNING_RIGHT){
@@ -224,6 +275,9 @@ void loop(){
   }
 
   else if(state == ROTATE_SERVO){
+    
+  speed_left = 0;
+  speed_right = 0;
     if(current_time - last_servo_update > 20){
       if(servo_angle<target_val)servo_angle++;
       else if (servo_angle>target_val)servo_angle--;
@@ -241,7 +295,6 @@ void loop(){
       next_action();
     }
   }
-
   
   if (!breakbeam && last_breakbeam) {//tube enter
     tube_enter_count = left_count+right_count;
@@ -277,13 +330,14 @@ void loop(){
     //Serial.println(String(true_speed_right)+" ");
   }
   update_motors_tension();
-  //servo.write(servo_angle);
+  servo.write(servo_angle);
 }
 
 void next_action(){
   action_number++;
   last_turn_count = left_count+right_count;
   start_turning_count = left_count-right_count;
+  last_action_time = millis();
 }
 
 
@@ -300,6 +354,13 @@ void set_maneuver(int maneuver[][2], int n){
   }
   next_action();
   action_number = 0;
+//  
+//  Serial.println(action_list[0][0]);
+//  Serial.println(action_list[0][1]);
+//  Serial.println(action_list[1][0]);
+//  Serial.println(action_list[1][1]);
+//  Serial.println(action_list[2][0]);
+//  Serial.println(action_list[2][1]);
 }
 
 void add_maneuver(int maneuver[][2], int n){

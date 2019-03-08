@@ -209,7 +209,6 @@ void loop(){
           tube_size = 0;
         }
       }
-      
       else{
         //keep following line
         if (mark_number%2==0 && mark_number!=0){
@@ -236,6 +235,7 @@ void loop(){
           speed_left = -speed_left;
           speed_right = -speed_right;
         }
+      }
     }
     else next_action();
   }
@@ -346,8 +346,8 @@ void add_last_maneuver(){
   if(tube_size == MEDIUM) l = 180;
   int MANEUVER[][2] = {
     {GOING_STRAIGHT, -l}, {TURNING_LEFT, 90}, {GOING_STRAIGHT, 2000},
-    {TURNING_RIGHT, 90}, {GOING_STRAIGHT, 200},{ROTATE_SERVO, SERVO_ANGLES[size_list[0]]}, {GOING_STRAIGHT, -65}, SERVO_ANGLES[size_list[1]]},
-    {GOING_STRAIGHT, -335},{ROTATE_SERVO, SERVO_ANGLES_180[size_list[2]]},{GOING_STRAIGHT, 65},{ROTATE_SERVO, SERVO_ANGLES_180[size_list[3]]},{GOING_STRAIGHT, 135},{TURNING_RIGHT, 90},{STOP,-1}
+    {TURNING_RIGHT, 90}, {GOING_STRAIGHT, 200},{ROTATE_SERVO, SERVO_ANGLES[slot_list[0]]}, {GOING_STRAIGHT, -65}, {ROTATE_SERVO, SERVO_ANGLES[slot_list[1]]},
+    {GOING_STRAIGHT, -335},{ROTATE_SERVO, SERVO_ANGLES_180[slot_list[2]]},{GOING_STRAIGHT, 65},{ROTATE_SERVO, SERVO_ANGLES_180[slot_list[3]]},{GOING_STRAIGHT, 135},{TURNING_RIGHT, 90},{STOP,-1}
   };
   add_maneuver(MANEUVER, 15);
 }

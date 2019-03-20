@@ -71,28 +71,28 @@ class Car:
             pygame.draw.circle(scr, color, sensor_pos, 3, 0)
 
         ###proximity sensors
-        direction_vector = Vect(1,0).rotate(-self.angle)
-        current_pos = self.position + direction_vector*PROXIMITY_SENSOR_OFFSET
-        proximity_sensors_pos = (int(current_pos[0]), int(current_pos[1]))
-        distance = 0
-        found = False
-        while distance < 150 and not found:
-            current_pos += direction_vector
-            distance += 1
-            if distance%14==0:
-                pygame.draw.circle(scr, red, (int(current_pos[0]),int(current_pos[1])), 1, 0)
-            for tube in self.tube_list:
-                if tube.is_inside(current_pos):
-                    found = True
-                    break
-
-        if found == True:
-            color = (255-distance*150/150,0,0) #red
-            self.proximity_sensor_value = distance
-        else:
-            color = (192,133,133)
-            self.proximity_sensor_value = -1
-        pygame.draw.circle(scr, color, proximity_sensors_pos, 2, 0)
+        # direction_vector = Vect(1,0).rotate(-self.angle)
+        # current_pos = self.position + direction_vector*PROXIMITY_SENSOR_OFFSET
+        # proximity_sensors_pos = (int(current_pos[0]), int(current_pos[1]))
+        # distance = 0
+        # found = False
+        # while distance < 150 and not found:
+        #     current_pos += direction_vector
+        #     distance += 1
+        #     if distance%14==0:
+        #         pygame.draw.circle(scr, red, (int(current_pos[0]),int(current_pos[1])), 1, 0)
+        #     for tube in self.tube_list:
+        #         if tube.is_inside(current_pos):
+        #             found = True
+        #             break
+        #
+        # if found == True:
+        #     color = (255-distance*150/150,0,0) #red
+        #     self.proximity_sensor_value = distance
+        # else:
+        #     color = (192,133,133)
+        #     self.proximity_sensor_value = -1
+        # pygame.draw.circle(scr, color, proximity_sensors_pos, 2, 0)
 
         ###breakbeam sensors
         direction_vector = Vect(0,1).rotate(-self.angle)

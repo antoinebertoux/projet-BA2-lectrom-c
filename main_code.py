@@ -11,7 +11,7 @@ simulator = Simulator(start_pos_begining)
 #SETUP#
 #######
 
-WHEELS_SPACING = 152
+WHEELS_SPACING = 150
 WHEEL_RADIUS = 30
 NORMAL_SPEED = 0.65
 TURNING_SPEED = 0.8
@@ -36,12 +36,18 @@ start_turning_angle = 0
 action_number = 0
 last_mark_distance = -1000
 action_list = []
+time_detect_left = -1000
+time_detect_right = -1000
+line_count = 0
+
 TURN_LEFT = [["turning_left", 90]]
 TURN_RIGHT = [["turning_right", 90]]
-STOCK_TUBE = [["stop",1.3]]
-MIDDLE_DIAM = [["following_line", 38], ["stop",2],["following_line", 20],["stop",1.3]]
+STRAIGHT = [["going_straight", 6]]
+STOCK_TUBE = [["stop",1]]
+MIDDLE_DIAM = [["following_line", 38], ["stop",1],["following_line", 20],["stop",1]]
 
-RETURN = [["turning_left", 180],["following_line", 100],["turning_right", 90], ["going_straight", 1000], ["stop", 1000]]
+RETURN1 = [["going_straight", -100],["turning_left", 90],["going_straight",100], ["straight_return", 0]]
+RETURN2 = [["going_straight", 100], ["stop", 1000]]
 last_action_time = 0
 tube_enter_distance = 0
 def next_action():
@@ -107,11 +113,11 @@ while True:
             elif sensor_values[0] and sensor_values[2]:
                 if mark_number !=0:
                     if mark_number >= 11:
-                        set_maneuver(RETURN)
+                        set_maneuver(RETURN1)
                     elif (mark_number-1)//2%2==0:
-                        set_maneuver(TURN_LEFT)
+                        set_maneuver(STRAIGHT+TURN_LEFT)
                     elif (mark_number-1)//2%2==1:
-                        set_maneuver(TURN_RIGHT)
+                        set_maneuver(STRAIGHT+TURN_RIGHT)
                 mark_number+=1
                 print(mark_number)
                 if diameter == 0:
@@ -146,7 +152,7 @@ while True:
 
     elif state == "turning_left" or state == "turning_right":
         #turning
-        if abs(start_turning_angle-angle_turned)<target_val-5:
+        if abs(start_turning_angle-angle_turned)<target_val+1:
             if state == "turning_left":
                 speed_left = -TURNING_SPEED
                 speed_right = TURNING_SPEED
@@ -157,12 +163,38 @@ while True:
             next_action()
 
     elif state == "going_straight":
-        if total_distance-last_action_distance <= target_val:
+        if abs(total_distance-last_action_distance) <= abs(target_val):
             speed_left = NORMAL_SPEED
             speed_right = NORMAL_SPEED
         else:
             next_action()
+        if target_val<0:
+            speed_left = -speed_left
+            speed_right = -speed_right
 
+    elif state == "straight_return":
+        speed_left = NORMAL_SPEED;
+        speed_right = NORMAL_SPEED;
+        if (sensor_values[0] and (current_time - time_detect_left)>1):
+            time_detect_left = time.time();
+        if (sensor_values[2] and (current_time - time_detect_right)>1):
+            time_detect_right = time.time();
+
+        if (sensor_values[0] and sensor_values[2] and time_detect_right != -10000 and time_detect_left != -10000):
+            #print(time_detect_left-time_detect_right)
+            if line_count==5:
+                set_maneuver(RETURN2)
+            else:
+                angle = 100*(time_detect_right-time_detect_left);
+                if angle<0:
+                    sens = "turning_right"
+                else:
+                    sens = "turning_left"
+                FIX_ANGLE = [[sens, abs(angle)],["going_straight", 50],["straight_return",0]]
+                set_maneuver(FIX_ANGLE)
+                time_detect_right = -10000
+                time_detect_left = -10000
+            line_count+=1
     elif state == "stop":
         if current_time - last_action_time < target_val:
             speed_left = 0
@@ -186,4 +218,4 @@ int(round(angle_turned))) + ' distance: ' + str(
 int(round(total_distance)))+ ' diameter: ' + str(round(diameter,2)) +" state: " +state
 
     simulator.end_loop(text_to_display)
-    time.sleep(0.05)
+    time.sleep(0.01)

@@ -63,12 +63,13 @@ unsigned long last_measure_update;
 #define SMALL 1
 #define MEDIUM 2
 #define BIG 3
+
 const int DELTA_T=100; // en ms
 const int WHEEL_DIAMETER= 70; //en mm
 const int WHEELS_SPACING = 310;
 const int NORMAL_SPEED  = 130; //vitesses en mm/s //130
 const int SLOW_SPEED  = 120;
-const int TURNING_SPEED = 170;
+const int TURNING_SPEED = 150;
 const int TURN_AFTER_DISTANCE_1 = 820;
 const int TURN_AFTER_DISTANCE_2 = 310;
 const int K = 22;
@@ -102,10 +103,11 @@ int RETURN[][2] = {{STOP,10000}};
 int LEFT_TURN[][2] = {{TURNING_LEFT, 90}};
 int RIGHT_TURN[][2] = {{TURNING_RIGHT, 90}};
 
-int SERVO_ANGLES[5] = {0,35,69,105,137};
-int SERVO_ANGLES_180[5] = {89,124,155,16,50};//{87,122,153,18,52}
+int SERVO_ANGLES[5] = {0,34,68,104,137};
+int SERVO_ANGLES_180[5] = {86,121,154,16,50};//{87,122,153,18,52}
 
 void setup(){
+//  int TEST_SERVO[20][2];
 //  for(int i = 0;i<5;i++){
 //  TEST_SERVO[i*4][0]=ROTATE_SERVO;
 //  TEST_SERVO[i*4][1]=SERVO_ANGLES[i];
@@ -118,6 +120,7 @@ void setup(){
 //  }
 //  TEST_SERVO[20][0]=ROTATE_SERVO;
 //  TEST_SERVO[20][1]=0;
+//  set_maneuver(TEST_SERVO,20);
   //serial
   Serial.begin(9600);
 
@@ -283,10 +286,10 @@ void loop(){
     if (sensor_left && sensor_right && time_detect_left != -10000 && time_detect_right != -10000){
       if(line_count == 5)set_last_maneuver2();
       else{
-        float angle = K_fix*(time_detect_right-time_detect_left)-5.3;
+        float angle = K_fix*(time_detect_right-time_detect_left)-4.7;
         Serial.println(angle);
-        int sens = TURNING_RIGHT
-        if(angle>0)sens = TURNING_LEFT
+        int sens = TURNING_RIGHT;
+        if(angle>0)sens = TURNING_LEFT;
         int FIX_ANGLE[][2] = {{sens, abs(angle)},{GOING_STRAIGHT,50},{STRAIGHT_RETURN, 0}};
         set_maneuver(FIX_ANGLE, 3);
         time_detect_right = -10000;
@@ -299,7 +302,7 @@ void loop(){
   else if(state == ROTATE_SERVO){
     speed_left = 0;
     speed_right = 0;
-    if(current_time - last_servo_update > 20){//1 degré par 20ms
+    if(current_time - last_servo_update > 25){//1 degré par 20ms
       if(servo_angle<target_val)servo_angle++;
       else if (servo_angle>target_val)servo_angle--;
       else next_action();
